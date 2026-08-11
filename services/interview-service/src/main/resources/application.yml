@@ -1,0 +1,48 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: interview-service
+  datasource:
+    url: ${INTERVIEW_DATABASE_URL:jdbc:postgresql://localhost:5433/rms_interview}
+    username: ${INTERVIEW_DATABASE_USERNAME:rms_user}
+    password: ${INTERVIEW_DATABASE_PASSWORD:rms_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
+
+app:
+  security:
+    dev-mode: ${DEV_MODE:true}
+  internal:
+    ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
+    user-service-url: ${USER_SERVICE_URL:http://localhost:8082}
+    mock-users: ${MOCK_INTERNAL_SERVICES:true}
+  kafka:
+    notification-topic: recruitment.notifications.v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

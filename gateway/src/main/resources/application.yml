@@ -1,0 +1,38 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: ats-service
+              uri: ${ATS_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/applications/**,/api/v1/employer/jobs/**,/api/v1/candidate/applications/**,/api/v1/notifications/**
+            - id: interview-service
+              uri: ${INTERVIEW_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/interviews/**,/api/v1/applications/*/interviews
+              order: -1
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
+
+app:
+  security:
+    dev-mode: ${DEV_MODE:true}
+    dev-user-id: ${DEV_USER_ID:00000000-0000-4000-8000-000000000001}
+    dev-tenant-id: ${DEV_TENANT_ID:00000000-0000-4000-8000-000000000100}
+    dev-role: ${DEV_USER_ROLE:RECRUITER}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
