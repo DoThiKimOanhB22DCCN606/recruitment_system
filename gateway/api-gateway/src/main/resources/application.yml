@@ -1,0 +1,121 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: api-gateway
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:CHANGE_ME}
+  cloud:
+    gateway:
+      default-filters:
+        - name: RequestId
+        - name: Retry
+          args:
+            retries: 0
+      routes:
+        - id: iam-auth-strict
+          uri: http://rms-iam:8081
+          predicates:
+            - Path=/api/v1/auth/login, /api/v1/auth/forgot-password, /api/v1/auth/reset-password, /api/v1/invitations/accept
+            - Method=POST
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@clientIpKeyResolver}"
+                
+        - id: iam-service
+          uri: http://rms-iam:8081
+          predicates:
+            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/admin/tenants/**, /api/v1/invitations/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 150
+                key-resolver: "#{@clientIpKeyResolver}"
+                
+        - id: offer-service
+          uri: http://rms-offer:8086
+          predicates:
+            - Path=/api/v1/offers/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+        - id: profile-service
+          uri: http://rms-profile:8082
+          predicates:
+            - Path=/api/v1/profiles/**, /api/v1/resumes/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+        - id: job-service
+          uri: http://rms-job:8083
+          predicates:
+            - Path=/api/v1/jobs/**, /api/v1/admin/skills/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+        - id: ats-service
+          uri: http://rms-ats:8084
+          predicates:
+            - Path=/api/v1/applications/**, /api/v1/notifications/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+        - id: interview-service
+          uri: http://rms-interview:8085
+          predicates:
+            - Path=/api/v1/interviews/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+rms:
+  jwt:
+    secret: ${JWT_SECRET:CHANGE_ME_64_CHAR_MINIMUM_SECRET_KEY_FOR_HS256_ALGORITHM}
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}

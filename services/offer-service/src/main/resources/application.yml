@@ -1,0 +1,63 @@
+server:
+  port: 8086
+  shutdown: graceful
+
+spring:
+  application:
+    name: offer-service
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${OFFER_DB_URL:jdbc:postgresql://localhost:5432/rms?currentSchema=offer_db}
+    username: ${OFFER_DB_USER:rms_app}
+    password: ${OFFER_DB_PASSWORD:CHANGE_ME_APP_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: offer_db
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: offer_db
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:rms_rabbit}
+    password: ${RABBITMQ_PASSWORD:CHANGE_ME}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:CHANGE_ME}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+rms:
+  internal-secret: ${INTERNAL_SECRET:CHANGE_ME_RANDOM_UUID_FOR_INTERNAL_CALLS}
+  ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      atsClient:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10000ms
+        permittedNumberOfCallsInHalfOpenState: 3
+
+shedlock:
+  table-name: offer_db.shedlock

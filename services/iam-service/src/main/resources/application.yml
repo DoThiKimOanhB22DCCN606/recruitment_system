@@ -1,0 +1,72 @@
+server:
+  port: 8081
+  shutdown: graceful
+
+spring:
+  application:
+    name: iam-service
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: ${IAM_DB_URL:jdbc:postgresql://localhost:5432/rms?currentSchema=iam_db}
+    username: ${IAM_DB_USER:rms_app}
+    password: ${IAM_DB_PASSWORD:CHANGE_ME_APP_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: iam_db
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    default-schema: iam_db
+    baseline-on-migrate: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: 5672
+    username: ${RABBITMQ_USER:rms_rabbit}
+    password: ${RABBITMQ_PASSWORD:CHANGE_ME}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:CHANGE_ME}
+  mail:
+    host: ${SMTP_HOST:smtp.sendgrid.net}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:apikey}
+    password: ${SMTP_PASSWORD:CHANGE_ME}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+rms:
+  jwt:
+    secret: ${JWT_SECRET:CHANGE_ME_64_CHAR_MINIMUM_SECRET_KEY_FOR_HS256_ALGORITHM}
+    expiration-sec: 900
+    access-token-expiry-seconds: 900
+    refresh-token-expiry-days: 7
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  internal-secret: ${INTERNAL_SECRET:CHANGE_ME_RANDOM_UUID_FOR_INTERNAL_CALLS}
+  sysadmin:
+    email: ${SYSADMIN_EMAIL:sysadmin@rms.internal}
+    initial-password: ${SYSADMIN_INITIAL_PASSWORD:CHANGE_ME_STRONG_INITIAL_PASSWORD}
+  lockout:
+    max-attempts: 5
+    lockout-duration-minutes: 15
