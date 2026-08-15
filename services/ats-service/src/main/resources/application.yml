@@ -1,0 +1,56 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ats-service
+  datasource:
+    url: ${ATS_DATABASE_URL:jdbc:postgresql://localhost:5432/rms_ats}
+    username: ${ATS_DATABASE_USERNAME:rms_user}
+    password: ${ATS_DATABASE_PASSWORD:rms_password}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.recruitment.ats.messaging,com.recruitment.interview.messaging
+        spring.json.value.default.type: com.recruitment.ats.messaging.NotificationEvent
+        spring.json.use.type.headers: false
+      auto-offset-reset: earliest
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
+
+app:
+  security:
+    dev-mode: ${DEV_MODE:true}
+  internal:
+    mock: ${MOCK_INTERNAL_SERVICES:true}
+    job-service-url: ${JOB_SERVICE_URL:http://localhost:8083}
+    profile-service-url: ${PROFILE_SERVICE_URL:http://localhost:8082}
+  kafka:
+    notification-topic: recruitment.notifications.v1
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

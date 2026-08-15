@@ -44,23 +44,11 @@ spring:
                 redis-rate-limiter.replenishRate: 100
                 redis-rate-limiter.burstCapacity: 150
                 key-resolver: "#{@clientIpKeyResolver}"
-                
-        - id: offer-service
-          uri: http://rms-offer:8086
-          predicates:
-            - Path=/api/v1/offers/**
-          filters:
-            - JwtValidation
-            - name: RequestRateLimiter
-              args:
-                redis-rate-limiter.replenishRate: 100
-                redis-rate-limiter.burstCapacity: 100
-                key-resolver: "#{@clientIpKeyResolver}"
 
-        - id: profile-service
-          uri: http://rms-profile:8082
+        - id: candidate-service
+          uri: http://rms-candidate:8082
           predicates:
-            - Path=/api/v1/profiles/**, /api/v1/resumes/**
+            - Path=/api/v1/candidate/**, /api/v1/profiles/**, /api/v1/resumes/**
           filters:
             - JwtValidation
             - name: RequestRateLimiter
@@ -105,6 +93,30 @@ spring:
                 redis-rate-limiter.burstCapacity: 100
                 key-resolver: "#{@clientIpKeyResolver}"
 
+        - id: offer-service
+          uri: http://rms-offer:8086
+          predicates:
+            - Path=/api/v1/offers/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
+        - id: company-service
+          uri: http://rms-company:8087
+          predicates:
+            - Path=/api/v1/company/**, /api/v1/companies/**
+          filters:
+            - JwtValidation
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@clientIpKeyResolver}"
+
 management:
   endpoints:
     web:
@@ -118,4 +130,4 @@ management:
 rms:
   jwt:
     secret: ${JWT_SECRET:CHANGE_ME_64_CHAR_MINIMUM_SECRET_KEY_FOR_HS256_ALGORITHM}
-  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+  frontend-base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
