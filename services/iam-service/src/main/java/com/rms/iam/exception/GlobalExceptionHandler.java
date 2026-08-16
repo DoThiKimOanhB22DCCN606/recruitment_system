@@ -53,14 +53,17 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleAllOtherExceptions(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception processing request: ", ex);
         String traceId = request.getHeader("X-Correlation-Id");
         if (traceId == null) {
             traceId = request.getHeader("traceId");
         }
         
-        ApiError apiError = new ApiError("ERR_INTERNAL_SERVER_ERROR", "An unexpected error occurred", null, traceId);
+        ApiError apiError = new ApiError("ERR_INTERNAL_SERVER_ERROR", ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred", null, traceId);
         return new ResponseEntity<>(apiError, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

@@ -2,6 +2,7 @@ CREATE TABLE iam_db.invitations (
     id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID         NOT NULL REFERENCES iam_db.tenants(id),
     invited_email   VARCHAR(255) NOT NULL,
+    role            VARCHAR(50)  NOT NULL,
     invited_by      UUID         NOT NULL REFERENCES iam_db.users(id),
     token_hash      VARCHAR(255) NOT NULL UNIQUE,
     expires_at      TIMESTAMPTZ  NOT NULL,

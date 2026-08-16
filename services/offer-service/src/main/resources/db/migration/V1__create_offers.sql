@@ -4,7 +4,7 @@ CREATE TABLE offer_db.offers (
     tenant_id           UUID             NOT NULL,
     candidate_id        UUID             NOT NULL,
     proposed_salary     DECIMAL(15,2)    NOT NULL,
-    currency            CHAR(3)          NOT NULL,
+    currency            VARCHAR(3)       NOT NULL,
     start_date          DATE             NOT NULL,
     expiry_date         DATE             NOT NULL,
     notes               TEXT             NULL,

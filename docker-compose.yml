@@ -348,17 +348,15 @@ services:
     depends_on:
       - rms-gateway
 
-  # ────── Nginx (Ingress TLS Termination) ──────
+  # ────── Nginx (Ingress Reverse Proxy) ──────
 
   rms-nginx:
     image: nginx:alpine
     container_name: rms-nginx
     networks: [rms-network]
     ports:
-      - "443:443"
       - "80:80"
     volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./infra/nginx/certs:/etc/nginx/certs:ro
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - rms-gateway
