@@ -17,7 +17,7 @@ public class JobExpiryScheduler {
 
     private final JobService jobService;
 
-    @Scheduled(cron = "${app.job.scheduler.cron:0 0 * * * *}")
+    @Scheduled(cron = "${app.job.scheduler.cron:0 0 1 * * *}", zone = "UTC")
     public void closeExpiredJobs() {
         int closed = jobService.closeExpiredJobs();
         if (closed > 0) {

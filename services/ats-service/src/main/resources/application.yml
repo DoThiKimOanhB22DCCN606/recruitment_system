@@ -18,6 +18,11 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:rms_user}
+    password: ${RABBITMQ_PASSWORD:rms_password}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -40,8 +45,6 @@ spring:
           jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
 
 app:
-  security:
-    dev-mode: ${DEV_MODE:true}
   internal:
     mock: ${MOCK_INTERNAL_SERVICES:true}
     job-service-url: ${JOB_SERVICE_URL:http://localhost:8083}

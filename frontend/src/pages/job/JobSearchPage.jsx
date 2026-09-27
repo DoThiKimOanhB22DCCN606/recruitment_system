@@ -9,10 +9,15 @@ import { jobApi } from '../../api/jobApi';
 import { LoadingState, ErrorState } from '../../components/common/LoadingState';
 
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP'];
+const WORK_TYPES = [
+  { value: 'ONSITE', label: 'Tại văn phòng' },
+  { value: 'HYBRID', label: 'Linh hoạt' },
+  { value: 'REMOTE', label: 'Từ xa' },
+];
 
 export default function JobSearchPage() {
   const [filters, setFilters] = useState({
-    keyword: '', location: '', employmentType: '', remote: '', page: 0, size: 10,
+    keyword: '', location: '', employmentType: '', workType: '', skill: '', sortBy: 'publishedAt', sortOrder: 'desc', page: 0, size: 10,
   });
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -20,7 +25,10 @@ export default function JobSearchPage() {
     queryFn: () =>
       jobApi.search({
         ...filters,
-        remote: filters.remote === '' ? undefined : filters.remote === 'true',
+        workType: filters.workType || undefined,
+        skill: filters.skill || undefined,
+        sortBy: filters.sortBy || undefined,
+        sortOrder: filters.sortOrder || undefined,
       }),
   });
 
@@ -37,11 +45,14 @@ export default function JobSearchPage() {
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>
             <TextField
-              fullWidth label="Từ khoá (tiêu đề, kỹ năng, công ty...)"
+              fullWidth label="Từ khoá (tiêu đề, công ty...)"
               value={filters.keyword} onChange={update('keyword')}
             />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={6} md={2}>
+            <TextField fullWidth label="Kỹ năng" value={filters.skill} onChange={update('skill')} placeholder="Java, React..." />
+          </Grid>
+          <Grid item xs={6} md={2}>
             <TextField fullWidth label="Địa điểm" value={filters.location} onChange={update('location')} />
           </Grid>
           <Grid item xs={6} md={2}>
@@ -51,15 +62,20 @@ export default function JobSearchPage() {
             </TextField>
           </Grid>
           <Grid item xs={6} md={2}>
-            <TextField select fullWidth label="Remote" value={filters.remote} onChange={update('remote')}>
+            <TextField select fullWidth label="Hình thức" value={filters.workType} onChange={update('workType')}>
               <MenuItem value="">Tất cả</MenuItem>
-              <MenuItem value="true">Remote</MenuItem>
-              <MenuItem value="false">Tại văn phòng</MenuItem>
+              {WORK_TYPES.map((w) => <MenuItem key={w.value} value={w.value}>{w.label}</MenuItem>)}
             </TextField>
           </Grid>
-          <Grid item xs={6} md={1}>
+          <Grid item xs={6} md={2}>
+            <TextField select fullWidth label="Sắp xếp" value={filters.sortBy} onChange={update('sortBy')}>
+              <MenuItem value="publishedAt">Mới nhất</MenuItem>
+              <MenuItem value="salary">Mức lương</MenuItem>
+            </TextField>
+          </Grid>
+          <Grid item xs={6} md={2}>
             <Button fullWidth variant="contained" sx={{ height: '100%' }} onClick={() => refetch()}>
-              Tìm
+              Tìm kiếm
             </Button>
           </Grid>
         </Grid>
@@ -67,8 +83,11 @@ export default function JobSearchPage() {
 
       {isLoading && <LoadingState label="Đang tìm kiếm việc làm..." />}
       {isError && <ErrorState />}
+      {data && !Array.isArray(data.content) && (
+        <ErrorState message="Không thể tải dữ liệu việc làm. Định dạng phản hồi không hợp lệ." />
+      )}
 
-      {data && (
+      {data && Array.isArray(data.content) && (
         <>
           <Stack spacing={2}>
             {data.content.map((job) => (
@@ -78,10 +97,16 @@ export default function JobSearchPage() {
                   <Typography variant="h6" color="text.primary">{job.title}</Typography>
                   <Typography color="text.secondary">{job.companyName} · {job.location}</Typography>
                   <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: 'wrap' }}>
-                    {job.remote && <Chip size="small" label="Remote" color="secondary" />}
+                    {job.workType && (
+                      <Chip
+                        size="small"
+                        label={job.workType}
+                        color={job.workType === 'REMOTE' ? 'secondary' : job.workType === 'HYBRID' ? 'primary' : 'default'}
+                      />
+                    )}
                     <Chip size="small" label={job.employmentType} variant="outlined" />
                     {job.salaryMin && job.salaryMax && (
-                      <Chip size="small" label={`${job.salaryMin} - ${job.salaryMax} ${job.salaryCurrency}`} />
+                      <Chip label={`${job.salaryMin} - ${job.salaryMax} ${job.salaryCurrency}`} />
                     )}
                     {(job.skills || []).slice(0, 4).map((s) => (
                       <Chip key={s} size="small" label={s} variant="outlined" />

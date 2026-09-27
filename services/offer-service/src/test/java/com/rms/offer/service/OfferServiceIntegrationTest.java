@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 @SpringBootTest
 @Testcontainers
+@org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
 public class OfferServiceIntegrationTest {
 
     @Container

@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +29,11 @@ public class CompanyServiceImpl implements CompanyService {
     private final CompanyMapper mapper;
 
     @Override
+    public CompanyProfileResponse getProfile(UUID ownerUserUuid) {
+        return mapper.toResponse(getOrCreateCompany(ownerUserUuid));
+    }
+
+    @Override
     public CompanyProfileResponse getProfile(Long ownerUserId) {
         return mapper.toResponse(getOrCreateCompany(ownerUserId));
     }
@@ -37,13 +43,22 @@ public class CompanyServiceImpl implements CompanyService {
     public CompanyProfileResponse getById(Long companyId) {
         Company company = companyRepository.findById(companyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Company not found: " + companyId));
-        return mapper.toResponse(company);
+        return mapper.toPublicResponse(company);
+    }
+
+    @Override
+    public CompanyProfileResponse updateProfile(UUID ownerUserUuid, CompanyProfileUpdateRequest request) {
+        Company company = getOrCreateCompany(ownerUserUuid);
+        return updateProfileInternal(company, request);
     }
 
     @Override
     public CompanyProfileResponse updateProfile(Long ownerUserId, CompanyProfileUpdateRequest request) {
         Company company = getOrCreateCompany(ownerUserId);
+        return updateProfileInternal(company, request);
+    }
 
+    private CompanyProfileResponse updateProfileInternal(Company company, CompanyProfileUpdateRequest request) {
         company.setName(request.getName());
         company.setDescription(request.getDescription());
         company.setIndustry(request.getIndustry());
@@ -61,8 +76,43 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    public CompanyProfileResponse uploadLogo(UUID ownerUserUuid, MultipartFile file) {
+        Company company = getOrCreateCompany(ownerUserUuid);
+        return uploadLogoInternal(company, file);
+    }
+
+    @Override
     public CompanyProfileResponse uploadLogo(Long ownerUserId, MultipartFile file) {
         Company company = getOrCreateCompany(ownerUserId);
+        return uploadLogoInternal(company, file);
+    }
+
+    private CompanyProfileResponse uploadLogoInternal(Company company, MultipartFile file) {
+        // 1. File size validation (<= 2MB: 2,097,152 bytes)
+        if (file == null || file.isEmpty() || file.getSize() > 2_097_152) {
+            throw new com.rms.common.exception.RmsException(
+                    com.rms.common.exception.ErrorCode.ERR_FILE_TOO_LARGE,
+                    "File size exceeds 2MB limit for company logos");
+        }
+
+        // 2. Binary magic-byte validation (JPEG: FF D8 FF, PNG: 89 50 4E 47)
+        try (var is = file.getInputStream()) {
+            byte[] header = new byte[4];
+            int read = is.read(header);
+            boolean isJpeg = read >= 3 && (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF;
+            boolean isPng = read >= 4 && (header[0] & 0xFF) == 0x89 && (header[1] & 0xFF) == 0x50 && (header[2] & 0xFF) == 0x4E && (header[3] & 0xFF) == 0x47;
+            if (!isJpeg && !isPng) {
+                throw new com.rms.common.exception.RmsException(
+                        com.rms.common.exception.ErrorCode.ERR_INVALID_FILE_TYPE,
+                        "Invalid image format: only JPEG and PNG files are permitted");
+            }
+        } catch (com.rms.common.exception.RmsException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.rms.common.exception.RmsException(
+                    com.rms.common.exception.ErrorCode.ERR_INVALID_FILE_TYPE,
+                    "Could not read uploaded logo file content");
+        }
 
         // Replace: remove old logo object if present, then upload the new one
         if (company.getLogoObjectKey() != null) {
@@ -75,8 +125,18 @@ public class CompanyServiceImpl implements CompanyService {
     }
 
     @Override
+    public CompanyProfileResponse deleteLogo(UUID ownerUserUuid) {
+        Company company = getOrCreateCompany(ownerUserUuid);
+        return deleteLogoInternal(company);
+    }
+
+    @Override
     public CompanyProfileResponse deleteLogo(Long ownerUserId) {
         Company company = getOrCreateCompany(ownerUserId);
+        return deleteLogoInternal(company);
+    }
+
+    private CompanyProfileResponse deleteLogoInternal(Company company) {
         if (company.getLogoObjectKey() != null) {
             minioStorageService.deleteObject(company.getLogoObjectKey());
             company.setLogoObjectKey(null);
@@ -95,6 +155,15 @@ public class CompanyServiceImpl implements CompanyService {
                 minioStorageService.generatePresignedDownloadUrl(company.getLogoObjectKey()),
                 company.isVerified()
         );
+    }
+
+    private Company getOrCreateCompany(UUID ownerUserUuid) {
+        return companyRepository.findByOwnerUserUuid(ownerUserUuid)
+                .orElseGet(() -> companyRepository.save(Company.builder()
+                        .ownerUserUuid(ownerUserUuid)
+                        .ownerUserId(Math.abs(ownerUserUuid.getMostSignificantBits()))
+                        .name("New Company")
+                        .build()));
     }
 
     private Company getOrCreateCompany(Long ownerUserId) {

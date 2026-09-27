@@ -25,12 +25,14 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 public class SecurityConfig {
 
     private final InternalHeaderAuthFilter internalHeaderAuthFilter;
+    private final InternalSecretFilter internalSecretFilter;
     
     @Value("${rms.frontend-base-url:http://localhost:3000}")
     private String frontendUrl;
 
-    public SecurityConfig(InternalHeaderAuthFilter internalHeaderAuthFilter) {
+    public SecurityConfig(InternalHeaderAuthFilter internalHeaderAuthFilter, InternalSecretFilter internalSecretFilter) {
         this.internalHeaderAuthFilter = internalHeaderAuthFilter;
+        this.internalSecretFilter = internalSecretFilter;
     }
 
     @Bean
@@ -49,6 +51,8 @@ public class SecurityConfig {
                         "/api/v1/auth/reset-password",
                         "/api/v1/auth/resend-verification",
                         "/api/v1/invitations/accept",
+                        "/internal/**",
+                        "/api/v1/internal/**",
                         "/actuator/health",
                         "/v3/api-docs/**",
                         "/swagger-ui/**",
@@ -56,7 +60,8 @@ public class SecurityConfig {
                 ).permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(internalHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(internalHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(internalSecretFilter, InternalHeaderAuthFilter.class);
             
         return http.build();
     }

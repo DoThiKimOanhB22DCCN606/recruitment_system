@@ -1,13 +1,9 @@
 package com.rms.offer.dto;
 
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
-import jakarta.validation.constraints.AssertTrue;
 
 public class OfferRequest {
 
@@ -18,20 +14,21 @@ public class OfferRequest {
     private UUID candidateId;
 
     @NotNull
-    @Min(0)
+    @Min(1)
     private BigDecimal proposedSalary;
 
     @NotBlank
+    @Pattern(regexp = "^[A-Z]{3}$", message = "Currency must be a 3-letter uppercase ISO 4217 code")
     private String currency;
 
     @NotNull
     @Future
     private LocalDate startDate;
 
-    @NotNull
-    @Future
+    @FutureOrPresent
     private LocalDate expiryDate;
 
+    @Size(max = 2000)
     private String notes;
 
     public UUID getApplicationId() { return applicationId; }

@@ -17,6 +17,8 @@ import java.util.List;
 @AllArgsConstructor
 public class JobResponse {
     private Long id;
+    private java.util.UUID tenantId;
+    private java.util.UUID recruiterId;
     private Long companyId;
     private String companyName;
     private Long categoryId;
@@ -31,7 +33,7 @@ public class JobResponse {
     private String salaryCurrency;
     private Job.EmploymentType employmentType;
     private Job.ExperienceLevel experienceLevel;
-    private boolean remote;
+    private Job.WorkType workType;
     private Integer vacancies;
     private JobStatus status;
     private LocalDateTime publishedAt;

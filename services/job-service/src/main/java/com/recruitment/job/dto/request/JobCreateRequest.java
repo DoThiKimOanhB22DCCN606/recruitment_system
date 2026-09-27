@@ -31,8 +31,7 @@ public class JobCreateRequest {
     private Job.EmploymentType employmentType;
 
     private Job.ExperienceLevel experienceLevel;
-
-    private boolean remote;
+    private Job.WorkType workType = Job.WorkType.ONSITE;
 
     @Min(1)
     private Integer vacancies = 1;
@@ -45,4 +44,6 @@ public class JobCreateRequest {
     /** Number of days from publish date until the job auto-closes. */
     @Positive
     private Integer expiryDays;
+
+    private Boolean draft;
 }

@@ -72,7 +72,7 @@ public class InvitationService {
         invitation.setTenant(tenant);
         invitation.setInvitedBy(inviter);
         invitation.setTokenHash(tokenHash);
-        invitation.setExpiresAt(Instant.now().plus(7, ChronoUnit.DAYS));
+        invitation.setExpiresAt(Instant.now().plus(72, ChronoUnit.HOURS));
         invitation.setAccepted(false);
 
         invitationRepository.save(invitation);

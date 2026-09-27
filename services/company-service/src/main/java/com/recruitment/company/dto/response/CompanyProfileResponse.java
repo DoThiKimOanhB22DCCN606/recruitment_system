@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CompanyProfileResponse {
     private Long id;
+    private java.util.UUID ownerUserUuid;
     private Long ownerUserId;
     private String name;
     private String description;

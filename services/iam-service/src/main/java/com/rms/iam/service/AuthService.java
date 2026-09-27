@@ -239,7 +239,12 @@ public class AuthService {
         prt.setUsed(true);
         passwordResetTokenRepository.save(prt);
         
+        passwordResetTokenRepository.invalidateAllByUserId(user.getId());
+        emailVerificationTokenRepository.invalidateAllByUserId(user.getId());
         refreshTokenRepository.revokeAllByUserId(user.getId());
+        if (tokenBlacklistService != null) {
+            tokenBlacklistService.blacklistUser(user.getId(), 15 * 60);
+        }
     }
 
     @Transactional
@@ -288,12 +293,21 @@ public class AuthService {
 
     @Transactional
     public void logout(String accessToken, String rawRefreshToken, UUID userId) {
+        UUID effectiveUserId = userId;
         if (rawRefreshToken != null && !rawRefreshToken.isBlank()) {
             String hash = jwtTokenProvider.hashToken(rawRefreshToken);
-            refreshTokenRepository.findByTokenHash(hash).ifPresent(rt -> {
+            var optRt = refreshTokenRepository.findByTokenHash(hash);
+            if (optRt.isPresent()) {
+                var rt = optRt.get();
                 rt.setRevoked(true);
                 refreshTokenRepository.save(rt);
-            });
+                if (effectiveUserId == null && rt.getUser() != null) {
+                    effectiveUserId = rt.getUser().getId();
+                }
+            }
+        }
+        if (effectiveUserId != null && tokenBlacklistService != null) {
+            tokenBlacklistService.blacklistUser(effectiveUserId, 15 * 60);
         }
     }
 }

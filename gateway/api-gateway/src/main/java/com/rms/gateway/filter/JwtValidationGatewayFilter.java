@@ -96,8 +96,6 @@ public class JwtValidationGatewayFilter implements GlobalFilter, Ordered {
 
                         if (tenantId != null) {
                             requestBuilder.header("X-Tenant-Id", tenantId.toString());
-                        } else {
-                            requestBuilder.header("X-Tenant-Id", ""); // SYS_ADMIN case
                         }
 
                         // Extract X-Client-Ip
@@ -128,6 +126,11 @@ public class JwtValidationGatewayFilter implements GlobalFilter, Ordered {
         
         // Prefix match for /api/v1/jobs/{id}
         if (HttpMethod.GET.equals(method) && path.startsWith("/api/v1/jobs/")) {
+            return true;
+        }
+
+        // Prefix match for /api/v1/companies/**
+        if (HttpMethod.GET.equals(method) && (path.equals("/api/v1/companies") || path.startsWith("/api/v1/companies/"))) {
             return true;
         }
         

@@ -14,8 +14,12 @@ public class OpenToWorkExpiryScheduler {
 
     private final CandidateService candidateService;
 
-    @Scheduled(cron = "${app.open-to-work.scheduler.cron:0 0 * * * *}")
+    @Scheduled(cron = "${app.open-to-work.scheduler.cron:0 0 0 * * *}", zone = "UTC")
     public void expireOpenToWork() {
+        int warningCount = candidateService.notifyExpiringOpenToWorkStatuses();
+        if (warningCount > 0) {
+            log.info("Sent expiry warning notifications for {} candidate(s)", warningCount);
+        }
         int count = candidateService.expireOpenToWorkStatuses();
         if (count > 0) {
             log.info("Expired 'Open To Work' status for {} candidate(s)", count);

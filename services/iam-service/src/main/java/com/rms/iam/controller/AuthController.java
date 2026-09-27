@@ -31,16 +31,25 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody LoginRequest request, HttpServletResponse response) {
         AuthResponse authResponse = authService.login(request);
         
-        ResponseCookie cookie = ResponseCookie.from("rms_refresh_token", authResponse.getRefreshToken())
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", authResponse.getRefreshToken())
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/v1/auth/refresh")
+                .path("/api/v1/auth")
                 .maxAge(7 * 24 * 60 * 60) // 7 days
                 .build();
                 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         
+        ResponseCookie legacyCookie = ResponseCookie.from("rms_refresh_token", authResponse.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(7 * 24 * 60 * 60)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
+
         return authResponse;
     }
 
@@ -70,47 +79,75 @@ public class AuthController {
 
     @PostMapping("/refresh")
     @ResponseStatus(HttpStatus.OK)
-    public AuthResponse refresh(@CookieValue(name = "rms_refresh_token", required = false) String refreshToken, HttpServletResponse response) {
-        if (refreshToken == null || refreshToken.isBlank()) {
+    public AuthResponse refresh(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            @CookieValue(name = "rms_refresh_token", required = false) String legacyRefreshToken,
+            @RequestBody(required = false) RefreshTokenRequest requestBody,
+            HttpServletResponse response) {
+        String token = refreshToken != null && !refreshToken.isBlank() ? refreshToken : legacyRefreshToken;
+        if ((token == null || token.isBlank()) && requestBody != null) {
+            token = requestBody.getRefreshToken();
+        }
+        if (token == null || token.isBlank()) {
             throw new com.rms.common.exception.RmsException(com.rms.common.exception.ErrorCode.ERR_MISSING_CREDENTIALS, "Refresh token is missing");
         }
         
-        AuthResponse authResponse = authService.refreshToken(refreshToken);
+        AuthResponse authResponse = authService.refreshToken(token);
         
-        ResponseCookie cookie = ResponseCookie.from("rms_refresh_token", authResponse.getRefreshToken())
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", authResponse.getRefreshToken())
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/v1/auth/refresh")
+                .path("/api/v1/auth")
                 .maxAge(7 * 24 * 60 * 60) // 7 days
                 .build();
                 
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         
+        ResponseCookie legacyCookie = ResponseCookie.from("rms_refresh_token", authResponse.getRefreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(7 * 24 * 60 * 60)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
+
         return authResponse;
     }
 
     @PostMapping("/logout")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(@CookieValue(name = "rms_refresh_token", required = false) String refreshToken,
-                       @RequestHeader(value = "X-User-Id", required = false) java.util.UUID userId,
-                       HttpServletResponse response) {
+    public void logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken,
+            @CookieValue(name = "rms_refresh_token", required = false) String legacyRefreshToken,
+            @RequestBody(required = false) RefreshTokenRequest requestBody,
+            @RequestHeader(value = "X-User-Id", required = false) java.util.UUID userId,
+            HttpServletResponse response) {
         
-        // Since Gateway strips Authorization, we might not have it here to extract TTL.
-        // We pass the rawRefreshToken and userId to the service.
-        if (userId != null) {
-            authService.logout(null, refreshToken, userId);
+        String token = refreshToken != null && !refreshToken.isBlank() ? refreshToken : legacyRefreshToken;
+        if ((token == null || token.isBlank()) && requestBody != null) {
+            token = requestBody.getRefreshToken();
         }
 
-        // Clear the refresh token cookie
-        ResponseCookie cookie = ResponseCookie.from("rms_refresh_token", "")
+        authService.logout(null, token, userId);
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("Strict")
-                .path("/api/v1/auth/refresh")
+                .path("/api/v1/auth")
                 .maxAge(0) // Expire immediately
                 .build();
-                
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        ResponseCookie legacyCookie = ResponseCookie.from("rms_refresh_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/v1/auth")
+                .maxAge(0)
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
     }
 }

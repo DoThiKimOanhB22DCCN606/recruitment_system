@@ -30,8 +30,8 @@ public class BlacklistCheckService {
                     return redisTemplate.hasKey(tenantKey);
                 })
                 .onErrorResume(e -> {
-                    log.warn("Blacklist check Redis failure, failing open for user {}: {}", userId, e.getMessage());
-                    return Mono.just(false);
+                    log.error("Blacklist check Redis failure, failing closed for user {}: {}", userId, e.getMessage());
+                    return Mono.just(true);
                 });
     }
 }

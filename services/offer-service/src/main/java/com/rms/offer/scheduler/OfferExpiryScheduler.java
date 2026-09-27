@@ -19,10 +19,15 @@ public class OfferExpiryScheduler {
     private static final Logger log = LoggerFactory.getLogger(OfferExpiryScheduler.class);
     private final OfferRepository offerRepository;
     private final com.rms.offer.messaging.OfferEventPublisher offerEventPublisher;
+    private final com.rms.offer.repository.AuditLogRepository auditLogRepository;
 
-    public OfferExpiryScheduler(OfferRepository offerRepository, com.rms.offer.messaging.OfferEventPublisher offerEventPublisher) {
+    public OfferExpiryScheduler(
+            OfferRepository offerRepository,
+            com.rms.offer.messaging.OfferEventPublisher offerEventPublisher,
+            com.rms.offer.repository.AuditLogRepository auditLogRepository) {
         this.offerRepository = offerRepository;
         this.offerEventPublisher = offerEventPublisher;
+        this.auditLogRepository = auditLogRepository;
     }
 
     @Scheduled(cron = "0 0 2 * * *", zone = "UTC") // Runs every day at 2 AM UTC
@@ -30,7 +35,7 @@ public class OfferExpiryScheduler {
     @Transactional
     public void expireOldOffers() {
         log.info("Running scheduled task: expireOldOffers");
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC);
         List<Offer> expiredOffers = offerRepository.findExpiredSentOffers(today);
         
         if (expiredOffers.isEmpty()) {
@@ -41,6 +46,17 @@ public class OfferExpiryScheduler {
         for (Offer offer : expiredOffers) {
             String oldStatus = offer.getStatus().name();
             offer.setStatus(OfferStatus.EXPIRED);
+            try {
+                auditLogRepository.save(com.rms.offer.entity.AuditLog.builder()
+                        .offerId(offer.getId())
+                        .tenantId(offer.getTenantId())
+                        .actorId(null)
+                        .action("EXPIRE_OFFER")
+                        .oldStatus(oldStatus)
+                        .newStatus(OfferStatus.EXPIRED.name())
+                        .notes("Offer expired automatically by scheduler")
+                        .build());
+            } catch (Exception ignored) {}
             offerEventPublisher.publishOfferExpiredEvent(offer.getId(), offer.getApplicationId(), offer.getTenantId());
             offerEventPublisher.publishOfferStatusChangedEvent(offer.getId(), offer.getApplicationId(), offer.getTenantId(), oldStatus, OfferStatus.EXPIRED.name());
         }

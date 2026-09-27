@@ -156,4 +156,61 @@ class AuthServiceTest {
         verify(refreshTokenRepository).revokeAllByUserId(user.getId());
         verify(iamEventPublisher).publishSecurityAlertEvent(any(com.rms.iam.messaging.SecurityAlertEvent.class));
     }
+
+    @Test
+    void testLogout_RevokesTokenAndBlacklistsUser() {
+        String rawToken = "raw-refresh-token";
+        String hash = "hashed-token";
+        UUID userId = UUID.randomUUID();
+
+        User user = new User();
+        user.setId(userId);
+
+        com.rms.iam.entity.RefreshToken rt = new com.rms.iam.entity.RefreshToken();
+        rt.setTokenHash(hash);
+        rt.setRevoked(false);
+        rt.setUser(user);
+
+        when(jwtTokenProvider.hashToken(rawToken)).thenReturn(hash);
+        when(refreshTokenRepository.findByTokenHash(hash)).thenReturn(Optional.of(rt));
+
+        authService.logout(null, rawToken, userId);
+
+        assertTrue(rt.isRevoked());
+        verify(refreshTokenRepository).save(rt);
+        verify(tokenBlacklistService).blacklistUser(userId, 15 * 60);
+    }
+
+    @Test
+    void testResetPassword_InvalidatesTokensAndBlacklistsUser() {
+        String token = "raw-reset-token";
+        String hash = "hashed-reset-token";
+        UUID userId = UUID.randomUUID();
+
+        User user = new User();
+        user.setId(userId);
+        user.setStatus(UserStatus.ACTIVE);
+
+        com.rms.iam.entity.PasswordResetToken prt = new com.rms.iam.entity.PasswordResetToken();
+        prt.setUser(user);
+        prt.setTokenHash(hash);
+        prt.setUsed(false);
+
+        when(jwtTokenProvider.hashToken(token)).thenReturn(hash);
+        when(passwordResetTokenRepository.findByTokenHashAndUsedFalseAndExpiresAtAfter(eq(hash), any())).thenReturn(Optional.of(prt));
+        when(passwordEncoder.encode(any())).thenReturn("new-encoded-password");
+
+        com.rms.iam.dto.request.ResetPasswordRequest request = new com.rms.iam.dto.request.ResetPasswordRequest();
+        request.setToken(token);
+        request.setNewPassword("P@ssword1234");
+
+        authService.resetPassword(request);
+
+        assertTrue(prt.isUsed());
+        verify(passwordResetTokenRepository).save(prt);
+        verify(passwordResetTokenRepository).invalidateAllByUserId(userId);
+        verify(emailVerificationTokenRepository).invalidateAllByUserId(userId);
+        verify(refreshTokenRepository).revokeAllByUserId(userId);
+        verify(tokenBlacklistService).blacklistUser(userId, 15 * 60);
+    }
 }

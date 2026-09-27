@@ -9,8 +9,8 @@ public class ResetPasswordRequest {
 
     @NotBlank
     // AUDIT FIX FINDING-01: Password Complexity
-    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{12,}$",
-             message = "Password must be at least 12 characters and include letters, numbers, and special characters")
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$",
+             message = "Password must be at least 8 characters and include letters, numbers, and special characters")
     @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     private String newPassword;
 

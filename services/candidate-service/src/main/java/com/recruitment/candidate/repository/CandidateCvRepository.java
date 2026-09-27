@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface CandidateCvRepository extends JpaRepository<CandidateCv, Long> {
     List<CandidateCv> findByCandidateId(Long candidateId);
     Optional<CandidateCv> findByCandidateIdAndIsDefaultTrue(Long candidateId);
+    long countByCandidateId(Long candidateId);
 }

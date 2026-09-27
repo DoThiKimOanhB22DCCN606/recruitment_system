@@ -53,6 +53,16 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgumentException(IllegalArgumentException ex, HttpServletRequest request) {
+        String traceId = request.getHeader("X-Correlation-Id");
+        if (traceId == null) {
+            traceId = request.getHeader("traceId");
+        }
+        ApiError apiError = new ApiError("ERR_VALIDATION_FAILED", ex.getMessage(), null, traceId);
+        return new ResponseEntity<>(apiError, HttpStatus.BAD_REQUEST);
+    }
+
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(Exception.class)

@@ -1,48 +1,41 @@
 package com.recruitment.job.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * Job Service validates JWT access tokens issued by the central Auth Service
- * (Resource Server pattern). Public read endpoints (job search / detail) are
- * open; write endpoints require an authenticated EMPLOYER, and approval
- * endpoints require ADMIN.
- */
 @Configuration
+@EnableWebSecurity
+@EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
+
+    private final InternalHeaderAuthFilter internalHeaderAuthFilter;
+    private final InternalSecretFilter internalSecretFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
+            .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                .requestMatchers("GET", "/jobs", "/jobs/search", "/jobs/{id}").permitAll()
-                .requestMatchers("/internal/**").permitAll() // secured at the network/gateway layer
-                .requestMatchers("POST", "/jobs/*/submit", "/jobs/*/approve", "/jobs/*/reject")
-                    .hasAnyRole("ADMIN", "EMPLOYER")
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/internal/**", "/api/v1/internal/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/jobs", "/jobs/search", "/jobs/{id}", "/api/v1/jobs", "/api/v1/jobs/search", "/api/v1/jobs/{id}").permitAll()
                 .anyRequest().authenticated()
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+            .addFilterBefore(internalHeaderAuthFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(internalSecretFilter, InternalHeaderAuthFilter.class);
 
         return http.build();
-    }
-
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        authoritiesConverter.setAuthorityPrefix("ROLE_");
-        authoritiesConverter.setAuthoritiesClaimName("roles");
-
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
-        return converter;
     }
 }

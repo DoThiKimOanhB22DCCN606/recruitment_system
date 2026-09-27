@@ -30,7 +30,7 @@ spring:
         - id: iam-service
           uri: http://rms-iam:8081
           predicates:
-            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/admin/tenants/**, /api/v1/invitations/**
+            - Path=/api/v1/auth/**, /api/v1/users/**, /api/v1/admin/**, /api/v1/invitations/**
           filters:
             - name: RequestRateLimiter
               args:
@@ -41,7 +41,7 @@ spring:
         - id: candidate-service
           uri: http://rms-candidate:8082
           predicates:
-            - Path=/api/v1/candidate/**, /api/v1/profiles/**, /api/v1/resumes/**
+            - Path=/api/v1/candidate/**, /api/v1/profiles/**, /api/v1/profile/**, /api/v1/account/**, /api/v1/resumes/**
           filters:
             - name: RequestRateLimiter
               args:

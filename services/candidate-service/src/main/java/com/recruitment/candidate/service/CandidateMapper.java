@@ -10,6 +10,7 @@ public class CandidateMapper {
     public CandidateProfileResponse toResponse(Candidate c) {
         return CandidateProfileResponse.builder()
                 .id(c.getId())
+                .userUuid(c.getUserUuid())
                 .userId(c.getUserId())
                 .fullName(c.getFullName())
                 .email(c.getEmail())

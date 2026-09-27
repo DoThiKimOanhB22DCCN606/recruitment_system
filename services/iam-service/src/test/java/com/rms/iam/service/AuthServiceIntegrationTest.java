@@ -24,7 +24,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
+@org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "DOCKER_AVAILABLE", matches = "true")
 public class AuthServiceIntegrationTest {
 
     @Container

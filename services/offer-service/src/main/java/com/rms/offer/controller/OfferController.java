@@ -73,8 +73,9 @@ public class OfferController {
     public Offer updateOffer(
             @PathVariable UUID offerId,
             @RequestHeader("X-Tenant-Id") UUID tenantId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId,
             @Valid @RequestBody OfferRequest request) {
-        return offerService.updateOffer(offerId, tenantId, request);
+        return offerService.updateOffer(offerId, tenantId, userId, request);
     }
 
     @PatchMapping("/{offerId}/send")
@@ -82,8 +83,9 @@ public class OfferController {
     @PreAuthorize("hasAuthority('HR_ADMIN')")
     public void sendOffer(
             @PathVariable UUID offerId,
-            @RequestHeader("X-Tenant-Id") UUID tenantId) {
-        offerService.sendOffer(offerId, tenantId);
+            @RequestHeader("X-Tenant-Id") UUID tenantId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+        offerService.sendOffer(offerId, tenantId, userId);
     }
 
     @PostMapping("/{offerId}/accept")
@@ -115,7 +117,16 @@ public class OfferController {
     @PreAuthorize("hasAuthority('HR_ADMIN')")
     public void withdrawOffer(
             @PathVariable UUID offerId,
+            @RequestHeader("X-Tenant-Id") UUID tenantId,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
+        offerService.withdrawOffer(offerId, tenantId, userId);
+    }
+
+    @GetMapping("/{offerId}/audit-logs")
+    @PreAuthorize("hasAuthority('HR_ADMIN')")
+    public List<com.rms.offer.entity.AuditLog> getOfferAuditLogs(
+            @PathVariable UUID offerId,
             @RequestHeader("X-Tenant-Id") UUID tenantId) {
-        offerService.withdrawOffer(offerId, tenantId);
+        return offerService.getOfferAuditLogs(offerId, tenantId);
     }
 }

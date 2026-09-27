@@ -12,6 +12,7 @@ import com.recruitment.ats.domain.Application;
 
 public interface ApplicationRepository extends JpaRepository<Application, UUID> {
     boolean existsByJobIdAndCandidateId(UUID jobId, UUID candidateId);
+    boolean existsByCvIdAndStatus(UUID cvId, com.recruitment.ats.domain.ApplicationStatus status);
 
     @EntityGraph(attributePaths = "currentStage")
     Optional<Application> findByIdAndTenantId(UUID id, UUID tenantId);

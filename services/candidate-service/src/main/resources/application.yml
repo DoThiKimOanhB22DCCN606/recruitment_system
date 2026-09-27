@@ -23,12 +23,11 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080/auth/realms/recruitment}
-          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8080/auth/realms/recruitment/protocol/openid-connect/certs}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
@@ -37,12 +36,14 @@ minio:
   bucket:
     candidate-cvs: candidate-cvs
   presigned-url:
-    expiry-seconds: 600
+    expiry-seconds: 900
 
 app:
+  internal:
+    ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
   open-to-work:
     scheduler:
-      cron: "0 0 * * * *"
+      cron: "0 0 0 * * *"
 
 springdoc:
   swagger-ui:

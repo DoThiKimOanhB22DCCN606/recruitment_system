@@ -52,12 +52,21 @@ export default function EmployerJobListPage() {
           </TableRow>
         </TableHead>
         <TableBody>
-          {data.content.map((job) => (
+          {Array.isArray(data?.content) && data.content.map((job) => (
             <TableRow key={job.id} hover>
               <TableCell>{job.title}</TableCell>
               <TableCell>{job.location}</TableCell>
               <TableCell><StatusChip status={job.status} /></TableCell>
               <TableCell align="right">
+                <Button
+                  size="small"
+                  variant="outlined"
+                  component={RouterLink}
+                  to={`/employer/jobs/${job.id}/ats`}
+                  sx={{ mr: 1, textTransform: 'none' }}
+                >
+                  Quy trình ATS
+                </Button>
                 {job.status === 'DRAFT' && (
                   <IconButton title="Gửi duyệt" onClick={() => submitMutation.mutate(job.id)}>
                     <SendIcon fontSize="small" />

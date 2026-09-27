@@ -91,6 +91,7 @@ public final class ApplicationDtos {
             UUID toStageId,
             String toStageName,
             UUID actorId,
+            String actorName,
             String reason,
             Instant createdAt) {
     }

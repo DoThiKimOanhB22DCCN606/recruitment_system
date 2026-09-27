@@ -23,7 +23,10 @@ public class Candidate {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false, unique = true)
+    @Column(name = "user_uuid", unique = true)
+    private java.util.UUID userUuid;
+
+    @Column(name = "user_id")
     private Long userId;
 
     @Column(name = "full_name", nullable = false)
@@ -52,6 +55,9 @@ public class Candidate {
 
     @Column(name = "open_to_work_until")
     private LocalDateTime openToWorkUntil;
+
+    @Column(name = "warning_sent_at")
+    private LocalDateTime warningSentAt;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

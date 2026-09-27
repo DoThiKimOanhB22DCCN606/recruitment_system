@@ -15,6 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CandidateProfileResponse {
     private Long id;
+    private java.util.UUID userUuid;
     private Long userId;
     private String fullName;
     private String email;

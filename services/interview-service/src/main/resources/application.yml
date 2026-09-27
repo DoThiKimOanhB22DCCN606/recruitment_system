@@ -32,8 +32,6 @@ spring:
           jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
 
 app:
-  security:
-    dev-mode: ${DEV_MODE:true}
   internal:
     ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
     user-service-url: ${USER_SERVICE_URL:http://localhost:8082}

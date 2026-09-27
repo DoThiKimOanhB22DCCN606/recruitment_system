@@ -14,6 +14,10 @@ import java.util.List;
 public interface JobRepository extends JpaRepository<Job, Long> {
 
     List<Job> findByCompanyId(Long companyId);
+    List<Job> findByTenantId(java.util.UUID tenantId);
+    Page<Job> findByTenantId(java.util.UUID tenantId, Pageable pageable);
+    Page<Job> findByTenantIdAndStatus(java.util.UUID tenantId, JobStatus status, Pageable pageable);
+    java.util.Optional<Job> findByIdAndTenantId(Long id, java.util.UUID tenantId);
 
     /**
      * Full-text search using PostgreSQL tsvector/tsquery (GIN indexed) combined
@@ -28,7 +32,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
           AND (:location IS NULL OR j.location ILIKE CONCAT('%', :location, '%'))
           AND (:employmentType IS NULL OR j.employment_type = :employmentType)
           AND (:experienceLevel IS NULL OR j.experience_level = :experienceLevel)
-          AND (:remote IS NULL OR j.is_remote = :remote)
+          AND (:workType IS NULL OR j.work_type = :workType)
           AND (:categoryId IS NULL OR j.category_id = :categoryId)
           AND (:salaryMin IS NULL OR j.salary_max IS NULL OR j.salary_max >= :salaryMin)
           AND (:salaryMax IS NULL OR j.salary_min IS NULL OR j.salary_min <= :salaryMax)
@@ -44,7 +48,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
           AND (:location IS NULL OR j.location ILIKE CONCAT('%', :location, '%'))
           AND (:employmentType IS NULL OR j.employment_type = :employmentType)
           AND (:experienceLevel IS NULL OR j.experience_level = :experienceLevel)
-          AND (:remote IS NULL OR j.is_remote = :remote)
+          AND (:workType IS NULL OR j.work_type = :workType)
           AND (:categoryId IS NULL OR j.category_id = :categoryId)
           AND (:salaryMin IS NULL OR j.salary_max IS NULL OR j.salary_max >= :salaryMin)
           AND (:salaryMax IS NULL OR j.salary_min IS NULL OR j.salary_min <= :salaryMax)
@@ -55,7 +59,7 @@ public interface JobRepository extends JpaRepository<Job, Long> {
             @Param("location") String location,
             @Param("employmentType") String employmentType,
             @Param("experienceLevel") String experienceLevel,
-            @Param("remote") Boolean remote,
+            @Param("workType") String workType,
             @Param("categoryId") Long categoryId,
             @Param("salaryMin") java.math.BigDecimal salaryMin,
             @Param("salaryMax") java.math.BigDecimal salaryMax,

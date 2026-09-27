@@ -57,4 +57,24 @@ public class TenantService {
         tenant.setStatus(TenantStatus.ACTIVE);
         tenantRepository.save(tenant);
     }
+
+    @Transactional
+    public Tenant updateTenant(UUID id, Tenant updated) {
+        Tenant existing = getTenant(id);
+        if (updated.getName() != null && !updated.getName().isBlank()) {
+            existing.setName(updated.getName());
+        }
+        if (updated.getStatus() != null) {
+            existing.setStatus(updated.getStatus());
+        }
+        return tenantRepository.save(existing);
+    }
+
+    @Transactional
+    public void deleteTenant(UUID id) {
+        Tenant tenant = getTenant(id);
+        tenantRepository.delete(tenant);
+        tokenBlacklistService.blacklistTenant(id, 900);
+        log.info("audit_log: tenant_deleted - tenant_id={}", id);
+    }
 }

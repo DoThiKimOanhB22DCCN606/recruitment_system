@@ -32,6 +32,11 @@ public class ApiExceptionHandler {
         return response(HttpStatus.CONFLICT, "ERR_DATA_CONFLICT", "The request conflicts with existing data");
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException exception) {
+        return response(HttpStatus.BAD_REQUEST, "ERR_VALIDATION_FAILED", exception.getMessage());
+    }
+
     private ResponseEntity<Map<String, Object>> response(HttpStatus status, String code, String message) {
         return ResponseEntity.status(status).body(Map.of(
                 "code", code,

@@ -6,27 +6,28 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface JobService {
 
-    JobResponse createJob(JobCreateRequest request, Long employerId);
+    JobResponse createJob(JobCreateRequest request, UUID userId, UUID tenantId, String role);
 
-    JobResponse updateJob(Long jobId, JobUpdateRequest request, Long employerId);
+    JobResponse updateJob(Long jobId, JobUpdateRequest request, UUID userId, UUID tenantId, String role);
 
-    void deleteJob(Long jobId, Long employerId);
+    void deleteJob(Long jobId, UUID userId, UUID tenantId, String role);
 
-    JobResponse getJobById(Long jobId);
+    JobResponse getJobById(Long jobId, UUID tenantId, String role);
 
-    Page<JobSummaryResponse> listJobs(Long companyId, Pageable pageable);
+    Page<JobSummaryResponse> listJobs(UUID tenantId, String role, Long companyId, Pageable pageable);
 
     Page<JobSummaryResponse> search(JobSearchRequest request);
 
-    JobResponse changeStatus(Long jobId, JobStatusChangeRequest request, Long actorId);
+    JobResponse changeStatus(Long jobId, JobStatusChangeRequest request, UUID userId, UUID tenantId, String role);
 
     List<JobStatusHistoryResponse> getStatusHistory(Long jobId);
 
     JobInternalStatusResponse getInternalStatus(Long jobId);
 
-    /** Invoked by the scheduled task; closes every PUBLISHED job whose expiresAt has passed. */
+    /** Invoked by scheduled task; closes every PUBLISHED job whose expiresAt has passed. */
     int closeExpiredJobs();
 }

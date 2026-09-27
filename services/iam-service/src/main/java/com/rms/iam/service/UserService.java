@@ -43,6 +43,18 @@ public class UserService {
         tokenBlacklistService.blacklistUser(targetUserId, 900);
     }
 
+    @Transactional
+    public void deactivateUserById(UUID targetUserId) {
+        User user = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new RmsException(ErrorCode.ERR_VALIDATION_FAILED, "User not found"));
+        
+        user.setStatus(UserStatus.DEACTIVATED);
+        userRepository.save(user);
+
+        refreshTokenRepository.revokeAllByUserId(targetUserId);
+        tokenBlacklistService.blacklistUser(targetUserId, 900);
+    }
+
     public UserDto getMe(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RmsException(ErrorCode.ERR_VALIDATION_FAILED, "User not found"));

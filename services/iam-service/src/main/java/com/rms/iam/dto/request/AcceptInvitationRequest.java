@@ -9,7 +9,8 @@ public class AcceptInvitationRequest {
     private String token;
 
     @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
+    @jakarta.validation.constraints.Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$",
+             message = "Password must be at least 8 characters and include letters, numbers, and special characters")
     private String password;
 
     public String getToken() { return token; }

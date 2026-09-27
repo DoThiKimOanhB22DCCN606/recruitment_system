@@ -12,7 +12,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobInternalStatusResponse {
+    private Long id;
     private Long jobId;
+    private java.util.UUID tenantId;
+    private java.util.UUID recruiterId;
     private JobStatus status;
     private boolean acceptingApplications;
+
+    public Long getId() {
+        return id != null ? id : jobId;
+    }
 }

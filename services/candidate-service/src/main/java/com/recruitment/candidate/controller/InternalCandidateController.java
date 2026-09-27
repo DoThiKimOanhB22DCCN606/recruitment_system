@@ -12,14 +12,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Internal API consumed by the ATS Service to verify a candidate's CV. */
 @RestController
-@RequestMapping("/internal/cvs")
+@RequestMapping
 @RequiredArgsConstructor
 @Tag(name = "Internal - Candidate")
 public class InternalCandidateController {
 
     private final CandidateService candidateService;
 
-    @GetMapping("/{cvId}")
+    @GetMapping({"/internal/cvs/{cvId}", "/api/v1/internal/cvs/{cvId}"})
     @Operation(summary = "Verify a CV and get a temporary download link (used by ATS Service)")
     public InternalCvResponse getCv(@PathVariable Long cvId) {
         return candidateService.getCvForInternalVerification(cvId);

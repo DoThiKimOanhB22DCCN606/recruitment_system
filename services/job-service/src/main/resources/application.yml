@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8083
 
 spring:
   application:
@@ -24,12 +24,14 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
 
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080/auth/realms/recruitment}
-          jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8080/auth/realms/recruitment/protocol/openid-connect/certs}
+  elasticsearch:
+    uris: http://${ELASTICSEARCH_HOST:localhost}:9200
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 springdoc:
   api-docs:
@@ -42,7 +44,9 @@ logging:
     com.recruitment.job: DEBUG
 
 app:
+  internal:
+    ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
   job:
     default-expiry-days: 30
     scheduler:
-      cron: "0 0 * * * *"   # every hour, closes expired jobs
+      cron: "0 0 1 * * *"   # every day at 01:00 UTC, closes expired jobs

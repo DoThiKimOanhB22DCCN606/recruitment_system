@@ -25,7 +25,7 @@ public class JobUpdateRequest {
 
     private Job.EmploymentType employmentType;
     private Job.ExperienceLevel experienceLevel;
-    private Boolean remote;
+    private Job.WorkType workType;
 
     @Min(1)
     private Integer vacancies;

@@ -17,6 +17,11 @@ public final class RequestContext {
         return required().userId();
     }
 
+    public static UUID currentUserId() {
+        Identity identity = CURRENT.get();
+        return identity != null ? identity.userId() : null;
+    }
+
     public static UUID tenantId() {
         return required().tenantId();
     }

@@ -18,6 +18,7 @@ import java.util.List;
 @AllArgsConstructor
 public class JobSummaryResponse {
     private Long id;
+    private java.util.UUID tenantId;
     private String title;
     private String companyName;
     private String location;
@@ -25,7 +26,7 @@ public class JobSummaryResponse {
     private BigDecimal salaryMax;
     private String salaryCurrency;
     private Job.EmploymentType employmentType;
-    private boolean remote;
+    private Job.WorkType workType;
     private JobStatus status;
     private List<String> skills;
     private LocalDateTime publishedAt;

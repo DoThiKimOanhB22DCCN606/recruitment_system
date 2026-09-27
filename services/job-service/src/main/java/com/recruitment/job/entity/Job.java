@@ -23,7 +23,13 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "company_id", nullable = false)
+    @Column(name = "tenant_id", nullable = false)
+    private java.util.UUID tenantId;
+
+    @Column(name = "recruiter_id")
+    private java.util.UUID recruiterId;
+
+    @Column(name = "company_id")
     private Long companyId;
 
     @Column(name = "company_name")
@@ -64,8 +70,10 @@ public class Job {
     @Column(name = "experience_level")
     private ExperienceLevel experienceLevel;
 
-    @Column(name = "is_remote")
-    private boolean remote;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "work_type", nullable = false)
+    @Builder.Default
+    private WorkType workType = WorkType.ONSITE;
 
     private Integer vacancies;
 
@@ -100,6 +108,10 @@ public class Job {
     @Builder.Default
     @OneToMany(mappedBy = "job", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<JobTag> tags = new ArrayList<>();
+
+    public enum WorkType {
+        ONSITE, HYBRID, REMOTE
+    }
 
     public enum EmploymentType {
         FULL_TIME, PART_TIME, CONTRACT, INTERNSHIP

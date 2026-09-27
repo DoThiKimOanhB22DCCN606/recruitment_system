@@ -30,6 +30,8 @@ public class ApplicationStageHistory {
     private UUID fromStageId;
     private UUID toStageId;
     private UUID actorId;
+    @Column(name = "actor_name")
+    private String actorName;
     @Column(length = 500)
     private String reason;
     private Instant createdAt = Instant.now();

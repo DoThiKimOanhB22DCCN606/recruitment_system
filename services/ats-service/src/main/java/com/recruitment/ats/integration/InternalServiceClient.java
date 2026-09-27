@@ -15,17 +15,39 @@ public class InternalServiceClient {
     private final RestClient restClient;
     private final String jobServiceUrl;
     private final String profileServiceUrl;
+    private final String iamServiceUrl;
+    private final String internalSecret;
     private final boolean mock;
 
     public InternalServiceClient(
             RestClient.Builder builder,
-            @Value("${app.internal.job-service-url}") String jobServiceUrl,
-            @Value("${app.internal.profile-service-url}") String profileServiceUrl,
+            @Value("${app.internal.job-service-url:http://localhost:8083}") String jobServiceUrl,
+            @Value("${app.internal.profile-service-url:http://localhost:8082}") String profileServiceUrl,
+            @Value("${app.internal.iam-service-url:http://localhost:8081}") String iamServiceUrl,
+            @Value("${app.internal.secret:${rms.internal-secret:${INTERNAL_SECRET:uuid-internal-secret-12345}}}") String internalSecret,
             @Value("${app.internal.mock:true}") boolean mock) {
         this.restClient = builder.build();
         this.jobServiceUrl = jobServiceUrl;
         this.profileServiceUrl = profileServiceUrl;
+        this.iamServiceUrl = iamServiceUrl;
+        this.internalSecret = internalSecret;
         this.mock = mock;
+    }
+
+    public java.util.List<UUID> getTenantRecruiterIds(UUID tenantId) {
+        if (mock || tenantId == null) {
+            return java.util.List.of();
+        }
+        try {
+            UUID[] ids = restClient.get()
+                    .uri(iamServiceUrl + "/internal/tenants/{tenantId}/recruiters", tenantId)
+                    .header("X-Internal-Secret", internalSecret)
+                    .retrieve()
+                    .body(UUID[].class);
+            return ids != null ? java.util.List.of(ids) : java.util.List.of();
+        } catch (Exception e) {
+            return java.util.List.of();
+        }
     }
 
     @Cacheable(value = "job-status", key = "#jobId")
@@ -37,6 +59,7 @@ public class InternalServiceClient {
         }
         return restClient.get()
                 .uri(jobServiceUrl + "/internal/jobs/{jobId}/status", jobId)
+                .header("X-Internal-Secret", internalSecret)
                 .retrieve()
                 .body(JobStatus.class);
     }
@@ -48,6 +71,7 @@ public class InternalServiceClient {
         }
         return restClient.get()
                 .uri(profileServiceUrl + "/internal/cvs/{cvId}", cvId)
+                .header("X-Internal-Secret", internalSecret)
                 .header("X-User-Id", RequestContext.userId().toString())
                 .retrieve()
                 .body(CvDetails.class);

@@ -24,9 +24,8 @@ public class RateLimiterConfig {
             public Mono<Response> isAllowed(String routeId, String id) {
                 return delegate.isAllowed(routeId, id)
                         .onErrorResume(Exception.class, e -> {
-                            log.warn("Rate limiter Redis failure, failing open: {}", e.getMessage());
-                            // FINDING-05: Fail open on Redis connection failure
-                            return Mono.just(new Response(true, Map.of()));
+                            log.error("Rate limiter Redis failure, failing closed: {}", e.getMessage());
+                            return Mono.just(new Response(false, Map.of()));
                         });
             }
 

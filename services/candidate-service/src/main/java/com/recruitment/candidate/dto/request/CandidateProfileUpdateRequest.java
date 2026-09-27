@@ -18,6 +18,7 @@ public class CandidateProfileUpdateRequest {
     private String email;
 
     private String phone;
+    @jakarta.validation.constraints.Past
     private LocalDate dateOfBirth;
     private String gender;
     private String address;

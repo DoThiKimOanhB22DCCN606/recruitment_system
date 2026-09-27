@@ -17,6 +17,7 @@ public class CompanyMapper {
     public CompanyProfileResponse toResponse(Company c) {
         return CompanyProfileResponse.builder()
                 .id(c.getId())
+                .ownerUserUuid(c.getOwnerUserUuid())
                 .ownerUserId(c.getOwnerUserId())
                 .name(c.getName())
                 .description(c.getDescription())
@@ -34,6 +35,14 @@ public class CompanyMapper {
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
                 .build();
+    }
+
+    public CompanyProfileResponse toPublicResponse(Company c) {
+        CompanyProfileResponse res = toResponse(c);
+        res.setOwnerUserUuid(null);
+        res.setOwnerUserId(null);
+        res.setTaxCode(null);
+        return res;
     }
 
     private CompanyProfileResponse.LocationDto toLocationDto(CompanyLocation l) {

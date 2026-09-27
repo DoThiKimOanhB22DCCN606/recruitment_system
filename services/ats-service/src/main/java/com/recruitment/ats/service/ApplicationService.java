@@ -46,7 +46,7 @@ public class ApplicationService {
     private final ApplicationRepository applications;
     private final PipelineStageRepository stages;
     private final ApplicationStageHistoryRepository history;
-    private final AuditLogRepository audits;
+    private final AuditService auditService;
     private final IdempotencyKeyRepository idempotencyKeys;
     private final InternalServiceClient internalClient;
     private final NotificationPublisher notifications;
@@ -56,7 +56,7 @@ public class ApplicationService {
             ApplicationRepository applications,
             PipelineStageRepository stages,
             ApplicationStageHistoryRepository history,
-            AuditLogRepository audits,
+            AuditService auditService,
             IdempotencyKeyRepository idempotencyKeys,
             InternalServiceClient internalClient,
             NotificationPublisher notifications,
@@ -64,7 +64,7 @@ public class ApplicationService {
         this.applications = applications;
         this.stages = stages;
         this.history = history;
-        this.audits = audits;
+        this.auditService = auditService;
         this.idempotencyKeys = idempotencyKeys;
         this.internalClient = internalClient;
         this.notifications = notifications;
@@ -127,9 +127,16 @@ public class ApplicationService {
 
         recordHistory(application, null, firstStage.getId(), candidateId, "Application submitted");
         idempotencyKeys.save(new IdempotencyKey(scopedKey, "SUBMIT_APPLICATION", application.getId()));
-        notifications.publish(new NotificationEvent(tenantId, job.recruiterId(),
-                "APPLICATION_SUBMITTED", "APPLICATION", application.getId(),
-                "New application", "A candidate submitted an application"));
+        
+        List<UUID> recruiterIds = internalClient.getTenantRecruiterIds(tenantId);
+        if (recruiterIds.isEmpty() && job.recruiterId() != null) {
+            recruiterIds = List.of(job.recruiterId());
+        }
+        for (UUID recruiterId : recruiterIds) {
+            notifications.publish(new NotificationEvent(tenantId, recruiterId,
+                    "APPLICATION_SUBMITTED", "APPLICATION", application.getId(),
+                    "New application", "A candidate submitted an application"));
+        }
         return ApplicationResponse.from(application);
     }
 
@@ -203,7 +210,7 @@ public class ApplicationService {
         }
         applications.save(application);
         recordHistory(application, previous.getId(), target.getId(), RequestContext.userId(), request.reason());
-        writeAudit(application, before, ipAddress, deviceInfo);
+        writeAudit(application, "APPLICATION_STAGE_CHANGED", before, ipAddress, deviceInfo, request.reason());
 
         notifications.publish(new NotificationEvent(application.getTenantId(), application.getCandidateId(),
                 "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
@@ -232,7 +239,9 @@ public class ApplicationService {
         application.setStatus(ApplicationStatus.WITHDRAWN);
         application.setUpdatedAt(Instant.now());
         applications.save(application);
-        writeAudit(application, before, ipAddress, deviceInfo);
+        recordHistory(application, application.getCurrentStage().getId(), application.getCurrentStage().getId(),
+                RequestContext.userId(), reason != null ? reason : "Candidate withdrew application");
+        writeAudit(application, "APPLICATION_WITHDRAWN", before, ipAddress, deviceInfo, reason);
 
         var job = internalClient.getJobStatus(application.getJobId());
         notifications.publish(new NotificationEvent(application.getTenantId(), job.recruiterId(),
@@ -266,6 +275,7 @@ public class ApplicationService {
                         item.getFromStageId(), stageName(stageById, item.getFromStageId()),
                         item.getToStageId(), stageName(stageById, item.getToStageId()),
                         candidateView ? null : item.getActorId(),
+                        candidateView ? null : (item.getActorName() != null ? item.getActorName() : (item.getActorId() != null ? item.getActorId().toString() : "System")),
                         candidateView ? null : item.getReason(),
                         item.getCreatedAt()))
                 .toList();
@@ -273,7 +283,191 @@ public class ApplicationService {
 
     @Transactional(readOnly = true)
     public ApplicationResponse getInternal(UUID id) {
-        return ApplicationResponse.from(requireEmployerApplication(id));
+        Application application = applications.findOneById(id)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ERR_APPLICATION_NOT_FOUND",
+                        "Application was not found"));
+        return ApplicationResponse.from(application);
+    }
+
+    @Transactional
+    public ApplicationResponse hireInternal(UUID id, UUID tenantId) {
+        return hireInternal(id, tenantId, null);
+    }
+
+    @Transactional
+    public ApplicationResponse hireInternal(UUID id, UUID tenantId, UUID explicitActorId) {
+        Application application;
+        if (tenantId != null) {
+            application = applications.findByIdAndTenantId(id, tenantId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ERR_APPLICATION_NOT_FOUND",
+                            "Application was not found for the given tenant"));
+        } else {
+            application = applications.findOneById(id)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ERR_APPLICATION_NOT_FOUND",
+                            "Application was not found"));
+        }
+
+        if (application.getStatus() == ApplicationStatus.HIRED) {
+            return ApplicationResponse.from(application);
+        }
+        if (application.getStatus() == ApplicationStatus.REJECTED || application.getStatus() == ApplicationStatus.WITHDRAWN) {
+            throw new ApiException(HttpStatus.CONFLICT, "ERR_TERMINAL_APPLICATION",
+                    "Cannot hire an application that is already " + application.getStatus());
+        }
+
+        UUID appTenantId = application.getTenantId();
+        UUID jobId = application.getJobId();
+        PipelineStage hiredStage = stages.findFirstByJobIdAndTenantIdAndTerminalStatus(jobId, appTenantId, ApplicationStatus.HIRED)
+                .or(() -> stages.findFirstByJobIdAndTenantIdAndNameIgnoreCase(jobId, appTenantId, "Hired"))
+                .orElseGet(() -> {
+                    int maxOrder = stages.findByJobIdAndTenantIdOrderBySequenceOrder(jobId, appTenantId).stream()
+                            .mapToInt(PipelineStage::getSequenceOrder)
+                            .max()
+                            .orElse(4);
+                    PipelineStage stage = new PipelineStage(appTenantId, jobId, "Hired", maxOrder + 1, true, ApplicationStatus.HIRED);
+                    return stages.save(stage);
+                });
+
+        PipelineStage previous = application.getCurrentStage();
+        UUID previousStageId = previous != null ? previous.getId() : null;
+        String previousStageName = previous != null ? previous.getName() : null;
+
+        Map<String, Object> before = Map.of(
+                "stageId", previousStageId != null ? previousStageId.toString() : "",
+                "stageName", previousStageName != null ? previousStageName : "",
+                "status", application.getStatus().name());
+
+        application.setCurrentStage(hiredStage);
+        application.setStatus(ApplicationStatus.HIRED);
+        application.setUpdatedAt(Instant.now());
+        applications.save(application);
+
+        UUID actorId = explicitActorId != null ? explicitActorId : (RequestContext.currentUserId() != null ? RequestContext.currentUserId() : application.getCandidateId());
+        recordHistory(application, previousStageId, hiredStage.getId(), actorId, "Candidate hired via offer acceptance");
+
+        AuditLog audit = new AuditLog();
+        audit.setTenantId(appTenantId);
+        audit.setActorId(actorId);
+        audit.setActionType("APPLICATION_HIRED");
+        audit.setEntityType("APPLICATION");
+        audit.setEntityId(application.getId());
+        audit.setBeforeState(objectMapper.valueToTree(before));
+        audit.setAfterState(objectMapper.valueToTree(Map.of(
+                "stageId", hiredStage.getId().toString(),
+                "stageName", hiredStage.getName(),
+                "status", application.getStatus().name())));
+        audit.setIpAddress("INTERNAL");
+        audit.setDeviceInfo("INTERNAL_SERVICE");
+        auditService.save(audit);
+
+        var job = internalClient.getJobStatus(jobId);
+        if (job != null && job.recruiterId() != null) {
+            notifications.publish(new NotificationEvent(appTenantId, job.recruiterId(),
+                    "APPLICATION_HIRED", "APPLICATION", application.getId(),
+                    "Candidate Hired", "Candidate has accepted the offer and is hired."));
+        }
+
+        return ApplicationResponse.from(application);
+    }
+
+    @Transactional
+    public void handleOfferExpired(UUID offerId, UUID applicationId, UUID tenantId) {
+        Application application;
+        if (tenantId != null) {
+            application = applications.findByIdAndTenantId(applicationId, tenantId).orElse(null);
+        } else {
+            application = applications.findOneById(applicationId).orElse(null);
+        }
+
+        if (application == null) {
+            return;
+        }
+
+        if (application.getStatus() == ApplicationStatus.HIRED
+                || application.getStatus() == ApplicationStatus.REJECTED
+                || application.getStatus() == ApplicationStatus.WITHDRAWN) {
+            return;
+        }
+
+        UUID appTenantId = application.getTenantId();
+        UUID jobId = application.getJobId();
+        PipelineStage rejectedStage = stages.findFirstByJobIdAndTenantIdAndTerminalStatus(jobId, appTenantId, ApplicationStatus.REJECTED)
+                .or(() -> stages.findFirstByJobIdAndTenantIdAndNameIgnoreCase(jobId, appTenantId, "Rejected"))
+                .orElseGet(() -> {
+                    int maxOrder = stages.findByJobIdAndTenantIdOrderBySequenceOrder(jobId, appTenantId).stream()
+                            .mapToInt(PipelineStage::getSequenceOrder)
+                            .max()
+                            .orElse(5);
+                    PipelineStage stage = new PipelineStage(appTenantId, jobId, "Rejected", maxOrder + 1, true, ApplicationStatus.REJECTED);
+                    return stages.save(stage);
+                });
+
+        PipelineStage previous = application.getCurrentStage();
+        UUID previousStageId = previous != null ? previous.getId() : null;
+        String previousStageName = previous != null ? previous.getName() : null;
+
+        Map<String, Object> before = Map.of(
+                "stageId", previousStageId != null ? previousStageId.toString() : "",
+                "stageName", previousStageName != null ? previousStageName : "",
+                "status", application.getStatus().name());
+
+        application.setCurrentStage(rejectedStage);
+        application.setStatus(ApplicationStatus.REJECTED);
+        application.setRejectionReason("Offer expired");
+        application.setUpdatedAt(Instant.now());
+        applications.save(application);
+
+        recordHistory(application, previousStageId, rejectedStage.getId(), null, "Offer expired");
+
+        AuditLog audit = new AuditLog();
+        audit.setTenantId(appTenantId);
+        audit.setActorId(null);
+        audit.setActionType("OFFER_EXPIRED");
+        audit.setEntityType("APPLICATION");
+        audit.setEntityId(application.getId());
+        audit.setBeforeState(objectMapper.valueToTree(before));
+        audit.setAfterState(objectMapper.valueToTree(Map.of(
+                "stageId", rejectedStage.getId().toString(),
+                "stageName", rejectedStage.getName(),
+                "status", application.getStatus().name(),
+                "rejectionReason", "Offer expired")));
+        audit.setIpAddress("INTERNAL");
+        audit.setDeviceInfo("INTERNAL_SCHEDULER");
+        auditService.save(audit);
+
+        // Notify recruiters and HR Admin
+        List<UUID> recruiterIds = new java.util.ArrayList<>(internalClient.getTenantRecruiterIds(appTenantId));
+        var job = internalClient.getJobStatus(jobId);
+        if (job != null && job.recruiterId() != null && !recruiterIds.contains(job.recruiterId())) {
+            recruiterIds.add(job.recruiterId());
+        }
+        for (UUID recruiterId : recruiterIds) {
+            notifications.publish(new NotificationEvent(appTenantId, recruiterId,
+                    "OFFER_EXPIRED", "APPLICATION", application.getId(),
+                    "Offer Expired", "An offer for application " + application.getId() + " has expired."));
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public boolean validateInternal(UUID id, UUID tenantId) {
+        var opt = tenantId != null ? applications.findByIdAndTenantId(id, tenantId) : applications.findOneById(id);
+        if (opt.isEmpty()) {
+            return false;
+        }
+        Application app = opt.get();
+        return app.getStatus() == ApplicationStatus.ACTIVE
+                && app.getCurrentStage() != null
+                && "Offered".equalsIgnoreCase(app.getCurrentStage().getName());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isCvInUse(UUID cvId) {
+        return applications.existsByCvIdAndStatus(cvId, ApplicationStatus.ACTIVE);
+    }
+
+    @Transactional
+    public void createDefaultStagesForJob(UUID tenantId, UUID jobId) {
+        ensureDefaultStages(tenantId, jobId);
     }
 
     private Application requireReadableApplication(UUID id) {
@@ -289,6 +483,10 @@ public class ApplicationService {
         }
         requireEmployerRole();
         if (!application.getTenantId().equals(RequestContext.tenantId())) {
+            UUID tenantId = RequestContext.tenantId() != null ? RequestContext.tenantId() : application.getTenantId();
+            UUID actorId = RequestContext.userId();
+            auditService.logCrossTenantAttempt(tenantId, actorId, application.getId());
+
             throw new ApiException(HttpStatus.FORBIDDEN, "ERR_TENANT_MISMATCH",
                     "Application belongs to another tenant");
         }
@@ -298,8 +496,18 @@ public class ApplicationService {
     private Application requireEmployerApplication(UUID id) {
         UUID tenantId = requireEmployerTenant();
         return applications.findByIdAndTenantId(id, tenantId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ERR_APPLICATION_NOT_FOUND",
-                        "Application was not found"));
+                .orElseGet(() -> {
+                    applications.findOneById(id).ifPresent(app -> {
+                        if (!tenantId.equals(app.getTenantId())) {
+                            UUID actorId = RequestContext.userId();
+                            auditService.logCrossTenantAttempt(tenantId, actorId, app.getId());
+                            throw new ApiException(HttpStatus.FORBIDDEN, "ERR_TENANT_MISMATCH",
+                                    "Application belongs to another tenant");
+                        }
+                    });
+                    throw new ApiException(HttpStatus.NOT_FOUND, "ERR_APPLICATION_NOT_FOUND",
+                            "Application was not found");
+                });
     }
 
     private UUID requireEmployerTenant() {
@@ -365,28 +573,57 @@ public class ApplicationService {
         item.setFromStageId(fromStageId);
         item.setToStageId(toStageId);
         item.setActorId(actorId);
+        item.setActorName(RequestContext.userName());
         item.setReason(reason);
         history.save(item);
     }
 
     private void writeAudit(
             Application application,
+            String actionType,
             Map<String, Object> before,
             String ipAddress,
-            String deviceInfo) {
+            String deviceInfo,
+            String reason) {
         AuditLog audit = new AuditLog();
         audit.setTenantId(application.getTenantId());
         audit.setActorId(RequestContext.userId());
-        audit.setActionType("APPLICATION_STAGE_CHANGED");
+        audit.setActionType(actionType);
         audit.setEntityType("APPLICATION");
         audit.setEntityId(application.getId());
         audit.setBeforeState(objectMapper.valueToTree(before));
-        audit.setAfterState(objectMapper.valueToTree(Map.of(
-                "stageId", application.getCurrentStage().getId(),
-                "stageName", application.getCurrentStage().getName(),
-                "status", application.getStatus())));
+        java.util.Map<String, Object> after = new java.util.HashMap<>();
+        if (application.getCurrentStage() != null) {
+            after.put("stageId", application.getCurrentStage().getId());
+            after.put("stageName", application.getCurrentStage().getName());
+        }
+        after.put("status", application.getStatus());
+        if (reason != null) {
+            after.put("reason", reason);
+        }
+        audit.setAfterState(objectMapper.valueToTree(after));
         audit.setIpAddress(ipAddress);
         audit.setDeviceInfo(deviceInfo);
-        audits.save(audit);
+        auditService.save(audit);
+    }
+
+    @Transactional
+    public void createDefaultStagesForJob(Object rawJobId, UUID tenantId) {
+        if (tenantId == null || rawJobId == null) {
+            return;
+        }
+        UUID jobId;
+        if (rawJobId instanceof UUID u) {
+            jobId = u;
+        } else if (rawJobId instanceof Long l) {
+            jobId = new UUID(0L, l);
+        } else {
+            try {
+                jobId = UUID.fromString(String.valueOf(rawJobId));
+            } catch (Exception e) {
+                jobId = UUID.nameUUIDFromBytes(String.valueOf(rawJobId).getBytes());
+            }
+        }
+        ensureDefaultStages(tenantId, jobId);
     }
 }

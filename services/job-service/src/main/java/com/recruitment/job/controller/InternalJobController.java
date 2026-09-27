@@ -10,20 +10,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Internal, service-to-service API. Not exposed publicly through the API
- * gateway; consumed by the ATS Service to check whether a job still accepts
- * applications before creating/advancing an application record.
- */
 @RestController
-@RequestMapping("/internal/jobs")
+@RequestMapping
 @RequiredArgsConstructor
 @Tag(name = "Internal - Jobs")
 public class InternalJobController {
 
     private final JobService jobService;
 
-    @GetMapping("/{id}/status")
+    @GetMapping({"/internal/jobs/{id}/status", "/api/v1/internal/jobs/{id}/status", "/internal/jobs/{id}", "/api/v1/internal/jobs/{id}"})
     @Operation(summary = "Get current status of a job (used by ATS Service)")
     public JobInternalStatusResponse getStatus(@PathVariable Long id) {
         return jobService.getInternalStatus(id);

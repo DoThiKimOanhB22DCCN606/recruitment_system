@@ -1,5 +1,7 @@
 package com.rms.offer.service;
 
+import com.rms.common.exception.ErrorCode;
+import com.rms.common.exception.RmsException;
 import com.rms.offer.client.AtsServiceClient;
 import com.rms.offer.dto.OfferRequest;
 import com.rms.offer.entity.Offer;
@@ -15,10 +17,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -34,6 +41,9 @@ class OfferServiceTest {
 
     @Mock
     private OfferEventPublisher offerEventPublisher;
+
+    @Mock
+    private com.rms.offer.repository.AuditLogRepository auditLogRepository;
 
     @InjectMocks
     private OfferService offerService;
@@ -58,13 +68,14 @@ class OfferServiceTest {
         validRequest.setCandidateId(candidateId);
         validRequest.setProposedSalary(BigDecimal.valueOf(100000));
         validRequest.setCurrency("USD");
-        validRequest.setStartDate(LocalDate.now().plusDays(30));
-        validRequest.setExpiryDate(LocalDate.now().plusDays(7));
+        validRequest.setStartDate(java.time.LocalDate.now().plusDays(30));
+        validRequest.setExpiryDate(java.time.LocalDate.now().plusDays(7));
     }
 
     @Test
     void createDraftOffer_Success() {
         when(atsServiceClient.validateApplication(applicationId, tenantId)).thenReturn(true);
+        when(offerRepository.findAllByApplicationIdAndTenantId(applicationId, tenantId)).thenReturn(Collections.emptyList());
         when(offerRepository.save(any(Offer.class))).thenAnswer(i -> {
             Offer o = i.getArgument(0);
             o.setId(offerId);
@@ -78,29 +89,60 @@ class OfferServiceTest {
         assertEquals(offerId, offer.getId());
         verify(atsServiceClient).validateApplication(applicationId, tenantId);
         verify(offerRepository).save(any(Offer.class));
+        verify(auditLogRepository).save(any());
+        verify(offerEventPublisher).publishOfferStatusChangedEvent(eq(offerId), eq(applicationId), eq(tenantId), isNull(), eq("DRAFT"));
     }
 
     @Test
-    void createDraftOffer_InvalidApplication() {
+    void createDraftOffer_InvalidApplicationStageThrowsRmsException() {
         when(atsServiceClient.validateApplication(applicationId, tenantId)).thenReturn(false);
 
-        OfferException exception = assertThrows(OfferException.class, () -> {
-            offerService.createDraftOffer(validRequest, tenantId, userId);
-        });
-        assertTrue(exception.getMessage().contains("Invalid application"));
+        assertThatThrownBy(() -> offerService.createDraftOffer(validRequest, tenantId, userId))
+                .isInstanceOf(RmsException.class)
+                .satisfies(e -> assertThat(((RmsException) e).getErrorCode()).isEqualTo(ErrorCode.ERR_OFFER_INVALID_STAGE));
+
+        verify(offerRepository, never()).save(any());
+    }
+
+    @Test
+    void createDraftOffer_DuplicateActiveOfferThrowsRmsException() {
+        when(atsServiceClient.validateApplication(applicationId, tenantId)).thenReturn(true);
+        Offer existing = new Offer();
+        existing.setStatus(OfferStatus.SENT);
+        when(offerRepository.findAllByApplicationIdAndTenantId(applicationId, tenantId)).thenReturn(List.of(existing));
+
+        assertThatThrownBy(() -> offerService.createDraftOffer(validRequest, tenantId, userId))
+                .isInstanceOf(RmsException.class)
+                .satisfies(e -> assertThat(((RmsException) e).getErrorCode()).isEqualTo(ErrorCode.ERR_OFFER_ALREADY_EXISTS));
+
         verify(offerRepository, never()).save(any());
     }
     
     @Test
-    void createDraftOffer_InvalidExpiryDate() {
+    void createDraftOffer_ExpiryDateAfterStartDateThrowsRmsException() {
         when(atsServiceClient.validateApplication(applicationId, tenantId)).thenReturn(true);
+        when(offerRepository.findAllByApplicationIdAndTenantId(applicationId, tenantId)).thenReturn(Collections.emptyList());
         
-        validRequest.setExpiryDate(LocalDate.now().plusDays(40)); // After start date (30)
+        validRequest.setExpiryDate(java.time.LocalDate.now().plusDays(40)); // After start date (30)
 
-        OfferException exception = assertThrows(OfferException.class, () -> {
-            offerService.createDraftOffer(validRequest, tenantId, userId);
-        });
-        assertTrue(exception.getMessage().contains("Expiry date must be before the start date"));
+        assertThatThrownBy(() -> offerService.createDraftOffer(validRequest, tenantId, userId))
+                .isInstanceOf(RmsException.class)
+                .satisfies(e -> assertThat(((RmsException) e).getErrorCode()).isEqualTo(ErrorCode.ERR_VALIDATION_FAILED));
+
+        verify(offerRepository, never()).save(any());
+    }
+
+    @Test
+    void createDraftOffer_PastExpiryDateThrowsRmsException() {
+        when(atsServiceClient.validateApplication(applicationId, tenantId)).thenReturn(true);
+        when(offerRepository.findAllByApplicationIdAndTenantId(applicationId, tenantId)).thenReturn(Collections.emptyList());
+        
+        validRequest.setExpiryDate(java.time.LocalDate.now().minusDays(2)); // In past
+
+        assertThatThrownBy(() -> offerService.createDraftOffer(validRequest, tenantId, userId))
+                .isInstanceOf(RmsException.class)
+                .satisfies(e -> assertThat(((RmsException) e).getErrorCode()).isEqualTo(ErrorCode.ERR_VALIDATION_FAILED));
+
         verify(offerRepository, never()).save(any());
     }
 
@@ -117,6 +159,7 @@ class OfferServiceTest {
 
         assertEquals(OfferStatus.SENT, offer.getStatus());
         verify(offerRepository).save(offer);
+        verify(auditLogRepository).save(any());
         verify(offerEventPublisher).publishOfferStatusChangedEvent(eq(offerId), eq(applicationId), eq(tenantId), eq("DRAFT"), eq("SENT"));
     }
 
@@ -127,16 +170,18 @@ class OfferServiceTest {
         offer.setCandidateId(candidateId);
         offer.setStatus(OfferStatus.SENT);
         offer.setApplicationId(applicationId);
+        offer.setCreatedBy(userId);
 
         when(offerRepository.findByIdAndTenantId(offerId, tenantId)).thenReturn(Optional.of(offer));
-        doNothing().when(atsServiceClient).hireApplication(applicationId, tenantId);
+        doNothing().when(atsServiceClient).hireApplication(applicationId, tenantId, userId);
 
         boolean result = offerService.acceptOffer(offerId, tenantId, candidateId);
 
         assertTrue(result);
         assertEquals(OfferStatus.ACCEPTED, offer.getStatus());
         assertNotNull(offer.getRespondedAt());
-        verify(atsServiceClient).hireApplication(applicationId, tenantId);
+        verify(atsServiceClient).hireApplication(applicationId, tenantId, userId);
+        verify(auditLogRepository).save(any());
         verify(offerEventPublisher, never()).publishOfferAcceptanceRetryEvent(any(), any(), any());
     }
     
@@ -147,13 +192,14 @@ class OfferServiceTest {
         offer.setCandidateId(candidateId);
         offer.setStatus(OfferStatus.SENT);
         offer.setApplicationId(applicationId);
+        offer.setCreatedBy(userId);
 
         when(offerRepository.findByIdAndTenantId(offerId, tenantId)).thenReturn(Optional.of(offer));
-        doThrow(new RuntimeException("ATS unavailable")).when(atsServiceClient).hireApplication(applicationId, tenantId);
+        doThrow(new RuntimeException("ATS unavailable")).when(atsServiceClient).hireApplication(applicationId, tenantId, userId);
 
         boolean result = offerService.acceptOffer(offerId, tenantId, candidateId);
 
-        assertFalse(result); // Return false indicating retry
+        assertFalse(result);
         assertEquals(OfferStatus.ACCEPTED, offer.getStatus());
         verify(offerEventPublisher).publishOfferAcceptanceRetryEvent(offerId, applicationId, tenantId);
     }

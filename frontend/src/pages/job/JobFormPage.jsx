@@ -10,6 +10,11 @@ import { jobApi } from '../../api/jobApi';
 
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP'];
 const EXPERIENCE_LEVELS = ['INTERN', 'JUNIOR', 'MID', 'SENIOR', 'LEAD'];
+const WORK_TYPES = [
+  { value: 'ONSITE', label: 'Tại văn phòng (Onsite)' },
+  { value: 'HYBRID', label: 'Linh hoạt (Hybrid)' },
+  { value: 'REMOTE', label: 'Từ xa (Remote)' },
+];
 
 export default function JobFormPage() {
   const { id } = useParams();
@@ -27,7 +32,7 @@ export default function JobFormPage() {
     defaultValues: {
       title: '', description: '', requirements: '', benefits: '', location: '',
       salaryMin: '', salaryMax: '', salaryCurrency: 'VND',
-      employmentType: 'FULL_TIME', experienceLevel: 'MID', remote: false,
+      employmentType: 'FULL_TIME', experienceLevel: 'MID', workType: 'ONSITE',
       vacancies: 1, skills: '', tags: '', expiryDays: 30,
     },
   });
@@ -36,6 +41,7 @@ export default function JobFormPage() {
     if (existingJob) {
       reset({
         ...existingJob,
+        workType: existingJob.workType || 'ONSITE',
         skills: (existingJob.skills || []).join(', '),
         tags: (existingJob.tags || []).join(', '),
       });
@@ -120,12 +126,11 @@ export default function JobFormPage() {
                 render={({ field }) => <TextField {...field} fullWidth type="number" label="Số lượng tuyển" />} />
             </Grid>
             <Grid item xs={6} md={3}>
-              <Controller name="remote" control={control}
+              <Controller name="workType" control={control}
                 render={({ field }) => (
-                  <FormControlLabel
-                    control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                    label="Remote"
-                  />
+                  <TextField {...field} select fullWidth label="Hình thức làm việc">
+                    {WORK_TYPES.map((w) => <MenuItem key={w.value} value={w.value}>{w.label}</MenuItem>)}
+                  </TextField>
                 )} />
             </Grid>
             <Grid item xs={12} md={6}>

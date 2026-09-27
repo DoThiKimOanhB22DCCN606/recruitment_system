@@ -51,4 +51,14 @@ public class IamEventPublisher {
     public void publishSecurityAlertEvent(SecurityAlertEvent event) {
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.security.alert", event);
     }
+
+    public void publishUserAnonymizedEvent(UUID userId, String email) {
+        com.rms.iam.messaging.event.UserAnonymizedEvent event = new com.rms.iam.messaging.event.UserAnonymizedEvent(
+                "USER_ANONYMIZED",
+                userId,
+                email,
+                java.time.Instant.now()
+        );
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.user.anonymized", event);
+    }
 }

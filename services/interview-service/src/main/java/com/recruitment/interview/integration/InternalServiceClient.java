@@ -15,22 +15,26 @@ public class InternalServiceClient {
     private final RestClient restClient;
     private final String atsServiceUrl;
     private final String userServiceUrl;
+    private final String internalSecret;
     private final boolean mockUsers;
 
     public InternalServiceClient(
             RestClient.Builder builder,
             @Value("${app.internal.ats-service-url}") String atsServiceUrl,
             @Value("${app.internal.user-service-url}") String userServiceUrl,
+            @Value("${app.internal.secret:${rms.internal-secret:${INTERNAL_SECRET:uuid-internal-secret-12345}}}") String internalSecret,
             @Value("${app.internal.mock-users:true}") boolean mockUsers) {
         this.restClient = builder.build();
         this.atsServiceUrl = atsServiceUrl;
         this.userServiceUrl = userServiceUrl;
+        this.internalSecret = internalSecret;
         this.mockUsers = mockUsers;
     }
 
     public ApplicationDetails getApplication(UUID applicationId) {
         return restClient.get()
                 .uri(atsServiceUrl + "/internal/applications/{id}", applicationId)
+                .header("X-Internal-Secret", internalSecret)
                 .header("X-User-Id", RequestContext.userId().toString())
                 .header("X-Tenant-Id", RequestContext.requireTenantId().toString())
                 .header("X-User-Role", RequestContext.role())
@@ -45,6 +49,7 @@ public class InternalServiceClient {
         }
         return restClient.get()
                 .uri(userServiceUrl + "/internal/users/{id}", userId)
+                .header("X-Internal-Secret", internalSecret)
                 .header("X-Tenant-Id", tenantId.toString())
                 .retrieve()
                 .body(UserDetails.class);
