@@ -1,0 +1,27 @@
+{
+  "dataset_version": "dataset-v1.0",
+  "cv_count": 14817,
+  "jd_count": 2500,
+  "pair_count": 117949,
+  "positive_count": 83934,
+  "negative_count": 32808,
+  "hard_negative_count": 1207,
+  "label_distribution": {
+    "0": 32808,
+    "1": 1207,
+    "2": 83934
+  },
+  "split_sizes": {
+    "train": 94938,
+    "validation": 11316,
+    "test": 11695
+  },
+  "normalization_version": "skill-normalizer-v1.0",
+  "labeling_version": "labeling-v1.0",
+  "creation_date": "2026-10-03 11:36:52",
+  "sources": [
+    "benchmark_dataset",
+    "applicant_csv",
+    "train_json"
+  ]
+}

@@ -1,0 +1,105 @@
+version: "3.9"
+
+services:
+  # ---------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------
+  job-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: job_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5433:5432"]
+    volumes: [job-db-data:/var/lib/postgresql/data]
+
+  candidate-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: candidate_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5434:5432"]
+    volumes: [candidate-db-data:/var/lib/postgresql/data]
+
+  company-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: company_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports: ["5435:5432"]
+    volumes: [company-db-data:/var/lib/postgresql/data]
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    volumes: [minio-data:/data]
+
+  # ---------------------------------------------------------------
+  # Member 2 backend services
+  # ---------------------------------------------------------------
+  job-service:
+    build: ./job-service
+    depends_on: [job-db]
+    ports: ["8081:8081"]
+    environment:
+      DB_HOST: job-db
+      DB_PORT: 5432
+      DB_NAME: job_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
+      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
+
+  candidate-service:
+    build: ./candidate-service
+    depends_on: [candidate-db, minio]
+    ports: ["8082:8082"]
+    environment:
+      DB_HOST: candidate-db
+      DB_PORT: 5432
+      DB_NAME: candidate_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
+      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
+
+  company-service:
+    build: ./company-service
+    depends_on: [company-db, minio]
+    ports: ["8083:8083"]
+    environment:
+      DB_HOST: company-db
+      DB_PORT: 5432
+      DB_NAME: company_db
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
+      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
+
+  # ---------------------------------------------------------------
+  # Frontend
+  # ---------------------------------------------------------------
+  frontend:
+    build: ./frontend
+    ports: ["3000:80"]
+    depends_on: [job-service, candidate-service, company-service]
+
+volumes:
+  job-db-data:
+  candidate-db-data:
+  company-db-data:
+  minio-data:

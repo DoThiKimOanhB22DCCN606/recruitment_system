@@ -1,0 +1,20 @@
+{
+  "status": "SUCCESS",
+  "jobs_normalized_count": 2500,
+  "resumes_normalized_count": 10000,
+  "master_resumes_count": 4817,
+  "vn_jobs_normalized_count": 606878,
+  "total_matching_pairs": 168000,
+  "train_pairs": 134400,
+  "val_pairs": 16800,
+  "test_pairs": 16800,
+  "sources": {
+    "benchmark_dataset": 150000,
+    "applicant_csv": 10000,
+    "train_json": 8000
+  },
+  "label_distribution": {
+    "0_no_match": 84066,
+    "1_match": 83934
+  }
+}
