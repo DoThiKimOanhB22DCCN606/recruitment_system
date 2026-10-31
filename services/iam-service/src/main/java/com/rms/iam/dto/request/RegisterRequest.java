@@ -1,0 +1,61 @@
+package com.rms.iam.dto.request;
+
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Size;
+
+public class RegisterRequest {
+    @NotBlank
+    @Email
+    private String email;
+
+    @NotBlank
+    // AUDIT FIX FINDING-01: Password Complexity
+    @Pattern(regexp = "^(?=.*[A-Za-z])(?=.*\\d)(?=.*[@$!%*#?&])[A-Za-z\\d@$!%*#?&]{8,}$",
+             message = "Password must be at least 8 characters and include letters, numbers, and special characters")
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    private String password;
+
+    @Size(max = 255)
+    private String companyName;
+    @Email
+    @Size(max = 255)
+    private String contactEmail;
+    @Size(max = 50)
+    private String taxCode;
+
+    @NotBlank
+    private String fullName;
+
+    @NotBlank
+    private String role; // "HR_ADMIN" or "CANDIDATE"
+
+    @NotNull
+    @AssertTrue(message = "Privacy policy must be accepted")
+    private Boolean privacyAccepted;
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+
+    public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
+    public String getContactEmail() { return contactEmail; }
+    public void setContactEmail(String contactEmail) { this.contactEmail = contactEmail; }
+    public String getTaxCode() { return taxCode; }
+    public void setTaxCode(String taxCode) { this.taxCode = taxCode; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getRole() { return role; }
+    public void setRole(String role) { this.role = role; }
+
+    public Boolean getPrivacyAccepted() { return privacyAccepted; }
+    public void setPrivacyAccepted(Boolean privacyAccepted) { this.privacyAccepted = privacyAccepted; }
+}

@@ -1,0 +1,53 @@
+package com.rms.job.dto.request;
+
+import com.rms.job.entity.Job;
+import jakarta.validation.constraints.*;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+public class JobCreateRequest {
+
+    @NotBlank(message = "Title is required")
+    @Size(max = 255)
+    private String title;
+
+    @NotBlank(message = "Description is required")
+    private String description;
+
+    private String requirements;
+    private String benefits;
+
+    @NotBlank(message = "Location is required")
+    private String location;
+
+    private BigDecimal salaryMin;
+    private BigDecimal salaryMax;
+    private String salaryCurrency;
+
+    @NotNull(message = "Employment type is required")
+    private Job.EmploymentType employmentType;
+
+    private Job.ExperienceLevel experienceLevel;
+    private Job.WorkType workType = Job.WorkType.ONSITE;
+
+    @Min(1)
+    private Integer vacancies = 1;
+
+    private Long categoryId;
+
+    private List<String> skills;
+    private List<String> tags;
+
+    @Future(message = "Recruitment deadline must be in the future")
+    private LocalDateTime expiresAt;
+
+    /** Number of days from publish date until the job auto-closes. */
+    @Positive
+    private Integer expiryDays;
+
+    private Boolean draft;
+}

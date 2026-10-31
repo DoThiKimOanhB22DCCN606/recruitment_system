@@ -1,0 +1,109 @@
+package com.rms.iam.messaging;
+
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Service;
+
+import java.util.Map;
+import java.util.UUID;
+
+import com.rms.iam.messaging.event.EmailEvent;
+import com.rms.iam.messaging.event.UserCreatedEvent;
+import com.rms.iam.messaging.event.CompanyRegistrationSubmittedEvent;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Service
+public class IamEventPublisher {
+    private static final Logger log = LoggerFactory.getLogger(IamEventPublisher.class);
+    
+    private final RabbitTemplate rabbitTemplate;
+
+    public IamEventPublisher(RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
+
+    public void sendVerificationEmail(String email, String rawToken) {
+        EmailEvent event = new EmailEvent(email, rawToken, "VERIFICATION");
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.email.send", event);
+    }
+    
+    public void sendPasswordResetEmail(String email, String rawToken) {
+        EmailEvent event = new EmailEvent(email, rawToken, "PASSWORD_RESET");
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.email.send", event);
+    }
+
+    public void publishCompanyRegistrationSubmitted(UUID registrationId, UUID sysAdminId,
+                                                    String companyName, String applicantEmail) {
+        CompanyRegistrationSubmittedEvent event = new CompanyRegistrationSubmittedEvent(
+                registrationId, sysAdminId, companyName, applicantEmail);
+        Runnable send = () -> {
+            try {
+                rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME,
+                        "company.registration.submitted", event);
+            } catch (Exception ex) {
+                log.error("Could not publish company registration notification for registrationId={}",
+                        registrationId, ex);
+            }
+        };
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() { send.run(); }
+            });
+        } else {
+            send.run();
+        }
+    }
+    
+    public void publishUserCreatedEvent(UUID userId, String email, String role, UUID tenantId) {
+        publishUserCreatedEvent(userId, email, role, tenantId, null);
+    }
+
+    public void publishUserCreatedEvent(UUID userId, String email, String role, UUID tenantId, String fullName) {
+        // Since we don't have correlationId easily accessible here without HttpServletRequest, we generate or pass one
+        // Better yet, use MDC.get("traceId") if available, or just a new UUID if absent.
+        String correlationId = java.util.UUID.randomUUID().toString();
+        UserCreatedEvent event = new UserCreatedEvent(
+                "USER_REGISTERED", 
+                userId, 
+                email, 
+                role, 
+                tenantId, 
+                correlationId, 
+                java.time.Instant.now(),
+                fullName
+        );
+        Runnable send = () -> rabbitTemplate.convertAndSend(
+                RabbitMQConfig.EXCHANGE_NAME, "iam.user.created", event);
+        if (TransactionSynchronizationManager.isSynchronizationActive()
+                && TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() { send.run(); }
+            });
+        } else {
+            send.run();
+        }
+    }
+    
+    public void publishAccountLockedEvent(AccountLockedEvent event) {
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.account.locked", event);
+    }
+    
+    public void publishSecurityAlertEvent(SecurityAlertEvent event) {
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.security.alert", event);
+    }
+
+    public void publishUserAnonymizedEvent(UUID userId, String email) {
+        com.rms.iam.messaging.event.UserAnonymizedEvent event = new com.rms.iam.messaging.event.UserAnonymizedEvent(
+                "USER_ANONYMIZED",
+                userId,
+                email,
+                java.time.Instant.now()
+        );
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE_NAME, "iam.user.anonymized", event);
+    }
+}

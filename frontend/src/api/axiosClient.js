@@ -1,7 +1,14 @@
 import axios from 'axios';
 
-function createClient(baseURL) {
-  const client = axios.create({ baseURL, timeout: 15000 });
+function createClient(baseURL = '') {
+  const client = axios.create({
+    baseURL,
+    timeout: 20000,
+    withCredentials: true, // For HTTP-only refresh token cookie
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 
   client.interceptors.request.use((config) => {
     const token = localStorage.getItem('accessToken');
@@ -12,22 +19,54 @@ function createClient(baseURL) {
   });
 
   client.interceptors.response.use(
-    (response) => response.data,
-    (error) => {
+    (response) => {
+      const contentType = response.headers?.['content-type'] || '';
+      if (contentType.includes('text/html') && typeof response.data === 'string') {
+        return Promise.reject(
+          new Error('Received HTML response instead of JSON. Check API route configuration.')
+        );
+      }
+      return response.data;
+    },
+    async (error) => {
+      let errorToReport = error;
+      const originalRequest = error.config;
+      if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.url.includes('/auth/login') && !originalRequest.url.includes('/auth/refresh')) {
+        originalRequest._retry = true;
+        try {
+          const res = await axios.post('/api/v1/auth/refresh', {}, { withCredentials: true });
+          const newAccessToken = res.data?.accessToken;
+          if (newAccessToken) {
+            localStorage.setItem('accessToken', newAccessToken);
+            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+            return client(originalRequest);
+          }
+        } catch (refreshErr) {
+          if ([401, 403].includes(refreshErr.response?.status)) {
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('rms_user');
+          } else {
+            // Keep the local session when refresh fails because the API is temporarily unavailable.
+            errorToReport = refreshErr;
+          }
+        }
+      }
       const message =
-        error.response?.data?.message || error.message || 'Unexpected error';
-      return Promise.reject(new Error(message));
+        errorToReport.response?.data?.message ||
+        errorToReport.response?.data?.error ||
+        errorToReport.message ||
+        'Unexpected error';
+      const apiError = new Error(message);
+      apiError.status = errorToReport.response?.status;
+      apiError.code = errorToReport.code;
+      return Promise.reject(apiError);
     }
   );
 
   return client;
 }
 
-// baseURL points to nginx location prefix which proxies to each backend service.
-// Paths in each api file should be relative to the backend controller root:
-//   jobClient:       /api/jobs       → job-service:8081       (controller: /jobs)
-//   candidateClient: /api/candidate  → candidate-service:8082 (controller: /candidate)
-//   companyClient:   /api/company    → company-service:8083   (controller: /company)
-export const jobClient       = createClient('/api');
-export const candidateClient = createClient('/api');
-export const companyClient   = createClient('/api');
+export const apiClient = createClient('');
+export const jobClient = apiClient;
+export const candidateClient = apiClient;
+export const companyClient = apiClient;

@@ -1,0 +1,26 @@
+package com.rms.job.controller;
+
+import com.rms.job.dto.response.JobInternalStatusResponse;
+import com.rms.job.service.JobService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping
+@RequiredArgsConstructor
+@Tag(name = "Internal - Jobs")
+public class InternalJobController {
+
+    private final JobService jobService;
+
+    @GetMapping({"/internal/jobs/{id}/status", "/api/v1/internal/jobs/{id}/status", "/internal/jobs/{id}", "/api/v1/internal/jobs/{id}"})
+    @Operation(summary = "Get current status of a job (used by ATS Service)")
+    public JobInternalStatusResponse getStatus(@PathVariable Long id) {
+        return jobService.getInternalStatus(id);
+    }
+}

@@ -1,0 +1,41 @@
+package com.rms.job.dto.request;
+
+import com.rms.job.entity.Job;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Data
+public class JobUpdateRequest {
+
+    @Size(max = 255)
+    private String title;
+
+    private String description;
+    private String requirements;
+    private String benefits;
+    private String location;
+
+    private BigDecimal salaryMin;
+    private BigDecimal salaryMax;
+    private String salaryCurrency;
+
+    private Job.EmploymentType employmentType;
+    private Job.ExperienceLevel experienceLevel;
+    private Job.WorkType workType;
+
+    @Min(1)
+    private Integer vacancies;
+
+    private Long categoryId;
+    private List<String> skills;
+    private List<String> tags;
+    @Future(message = "Recruitment deadline must be in the future")
+    private LocalDateTime expiresAt;
+    private Integer expiryDays;
+}

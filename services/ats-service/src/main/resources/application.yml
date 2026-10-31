@@ -18,6 +18,11 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:rms_user}
+    password: ${RABBITMQ_PASSWORD:rms_password}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -29,8 +34,8 @@ spring:
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
-        spring.json.trusted.packages: com.recruitment.ats.messaging,com.recruitment.interview.messaging
-        spring.json.value.default.type: com.recruitment.ats.messaging.NotificationEvent
+        spring.json.trusted.packages: com.rms.ats.messaging,com.rms.interview.messaging
+        spring.json.value.default.type: com.rms.ats.messaging.NotificationEvent
         spring.json.use.type.headers: false
       auto-offset-reset: earliest
   security:
@@ -40,12 +45,11 @@ spring:
           jwk-set-uri: ${JWT_JWK_SET_URI:http://localhost:8090/realms/recruitment/protocol/openid-connect/certs}
 
 app:
-  security:
-    dev-mode: ${DEV_MODE:true}
   internal:
     mock: ${MOCK_INTERNAL_SERVICES:true}
     job-service-url: ${JOB_SERVICE_URL:http://localhost:8083}
     profile-service-url: ${PROFILE_SERVICE_URL:http://localhost:8082}
+    iam-service-url: ${IAM_SERVICE_URL:http://localhost:8081}
   kafka:
     notification-topic: recruitment.notifications.v1
 

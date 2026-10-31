@@ -1,28 +1,33 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Box, Card, CardContent, Typography, Grid, TextField, Button, Avatar,
-  Stack, Divider, IconButton,
+  Stack, Divider, IconButton, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { companyApi } from '../../api/companyApi';
+import { useAuth } from '../../context/AuthContext';
 import { LoadingState, ErrorState } from '../../components/common/LoadingState';
 
 /**
- * Company profile page. Logo upload posts directly to the Company Service,
- * which stores the image in MinIO (bucket: company-logos) and returns a
- * presigned URL used as the <Avatar> source.
+ * Company profile page. Logo bytes are loaded through the authenticated API
+ * because the MinIO container hostname is not available to the browser.
  */
 export default function CompanyProfilePage() {
   const fileInputRef = useRef(null);
+  const [logoObjectUrl, setLogoObjectUrl] = useState(null);
+  const [logoError, setLogoError] = useState('');
   const queryClient = useQueryClient();
+  const { tenantId } = useAuth();
+  const profileQueryKey = ['company-profile', tenantId];
 
   const { data: profile, isLoading, isError } = useQuery({
-    queryKey: ['company-profile'],
+    queryKey: profileQueryKey,
     queryFn: companyApi.getProfile,
+    enabled: Boolean(tenantId),
   });
 
   const { control, handleSubmit, reset } = useForm({
@@ -36,10 +41,37 @@ export default function CompanyProfilePage() {
     if (profile) reset(profile);
   }, [profile, reset]);
 
+  useEffect(() => {
+    if (!profile?.logoUrl) {
+      setLogoObjectUrl(null);
+      return undefined;
+    }
+    let active = true;
+    let objectUrl;
+    companyApi.getLogo().then((blob) => {
+      objectUrl = URL.createObjectURL(blob);
+      if (active) {
+        setLogoObjectUrl(objectUrl);
+        setLogoError('');
+      } else {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }).catch((error) => {
+      if (active) setLogoError(error.message || 'Không tải được logo doanh nghiệp.');
+    });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [profile?.logoUrl]);
+
   const locations = useFieldArray({ control, name: 'locations' });
   const socialLinks = useFieldArray({ control, name: 'socialLinks' });
 
-  const invalidate = (data) => queryClient.setQueryData(['company-profile'], data);
+  const invalidate = (data) => {
+    queryClient.setQueryData(profileQueryKey, data);
+    queryClient.invalidateQueries({ queryKey: ['company-brand', tenantId] });
+  };
 
   const saveMutation = useMutation({
     mutationFn: (payload) => companyApi.updateProfile(payload),
@@ -48,12 +80,25 @@ export default function CompanyProfilePage() {
 
   const logoMutation = useMutation({
     mutationFn: (file) => companyApi.uploadLogo(file),
-    onSuccess: invalidate,
+    onSuccess: (data) => {
+      setLogoError('');
+      invalidate(data);
+    },
+    onError: (error) => setLogoError(error.message || 'Không cập nhật được logo doanh nghiệp.'),
   });
 
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0];
-    if (file) logoMutation.mutate(file);
+    if (file) {
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        setLogoError('Chỉ hỗ trợ ảnh JPG hoặc PNG.');
+      } else if (file.size > 2_097_152) {
+        setLogoError('Logo phải nhỏ hơn hoặc bằng 2 MB.');
+      } else {
+        setLogoError('');
+        logoMutation.mutate(file);
+      }
+    }
     e.target.value = '';
   };
 
@@ -64,15 +109,17 @@ export default function CompanyProfilePage() {
     <Card>
       <CardContent>
         <Stack direction="row" spacing={3} alignItems="center" sx={{ mb: 3 }}>
-          <Avatar src={profile.logoUrl} sx={{ width: 80, height: 80 }} variant="rounded" />
+          <Avatar src={logoObjectUrl || undefined} sx={{ width: 80, height: 80 }} variant="rounded" />
           <Box>
             <Typography variant="h5" fontWeight={700}>{profile.name || 'Hồ sơ doanh nghiệp'}</Typography>
-            <Button size="small" startIcon={<UploadFileIcon />} onClick={() => fileInputRef.current.click()} sx={{ mt: 1 }}>
-              Cập nhật logo
+            <Button size="small" startIcon={<UploadFileIcon />} disabled={logoMutation.isPending}
+              onClick={() => fileInputRef.current.click()} sx={{ mt: 1 }}>
+              {logoMutation.isPending ? 'Đang tải logo...' : 'Cập nhật logo'}
             </Button>
-            <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleLogoChange} />
+            <input ref={fileInputRef} type="file" accept="image/jpeg,image/png" hidden onChange={handleLogoChange} />
           </Box>
         </Stack>
+        {logoError && <Alert severity="error" sx={{ mb: 2 }}>{logoError}</Alert>}
 
         <Box component="form" onSubmit={handleSubmit((v) => saveMutation.mutate(v))}>
           <Grid container spacing={2}>
@@ -121,7 +168,7 @@ export default function CompanyProfilePage() {
           ))}
 
           <Divider sx={{ my: 3 }} />
-          <SectionHeader title="Mạng xã hội" onAdd={() => socialLinks.append({ platform: 'LINKEDIN', url: '' })} />
+          <SectionHeader title="Mạng xã hội" onAdd={() => socialLinks.append({ platform: '', url: '' })} />
           {socialLinks.fields.map((f, idx) => (
             <Grid container spacing={2} key={f.id} sx={{ mb: 1 }} alignItems="center">
               <Grid item xs={12} md={4}>

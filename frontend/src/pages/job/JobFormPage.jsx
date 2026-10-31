@@ -2,14 +2,17 @@ import React, { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Box, Grid, TextField, MenuItem, Button, Typography, Card, CardContent,
-  FormControlLabel, Switch,
-} from '@mui/material';
+import { Box, Grid, TextField, MenuItem, Button, Typography, Card, CardContent, Alert } from '@mui/material';
 import { jobApi } from '../../api/jobApi';
+import { formatMoney, formatMoneyInput, parseMoneyInput } from '../../utils/money';
 
 const EMPLOYMENT_TYPES = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP'];
 const EXPERIENCE_LEVELS = ['INTERN', 'JUNIOR', 'MID', 'SENIOR', 'LEAD'];
+const WORK_TYPES = [
+  { value: 'ONSITE', label: 'Tại văn phòng (Onsite)' },
+  { value: 'HYBRID', label: 'Linh hoạt (Hybrid)' },
+  { value: 'REMOTE', label: 'Từ xa (Remote)' },
+];
 
 export default function JobFormPage() {
   const { id } = useParams();
@@ -19,7 +22,7 @@ export default function JobFormPage() {
 
   const { data: existingJob } = useQuery({
     queryKey: ['job', id],
-    queryFn: () => jobApi.getById(id),
+    queryFn: () => jobApi.getEmployerById(id),
     enabled: isEdit,
   });
 
@@ -27,8 +30,8 @@ export default function JobFormPage() {
     defaultValues: {
       title: '', description: '', requirements: '', benefits: '', location: '',
       salaryMin: '', salaryMax: '', salaryCurrency: 'VND',
-      employmentType: 'FULL_TIME', experienceLevel: 'MID', remote: false,
-      vacancies: 1, skills: '', tags: '', expiryDays: 30,
+      employmentType: 'FULL_TIME', experienceLevel: 'MID', workType: 'ONSITE',
+      vacancies: 1, skills: '', tags: '', expiresAt: '',
     },
   });
 
@@ -36,6 +39,10 @@ export default function JobFormPage() {
     if (existingJob) {
       reset({
         ...existingJob,
+        salaryMin: formatMoney(existingJob.salaryMin),
+        salaryMax: formatMoney(existingJob.salaryMax),
+        workType: existingJob.workType || 'ONSITE',
+        expiresAt: existingJob.expiresAt?.slice(0, 16) || '',
         skills: (existingJob.skills || []).join(', '),
         tags: (existingJob.tags || []).join(', '),
       });
@@ -46,6 +53,8 @@ export default function JobFormPage() {
     mutationFn: (payload) => (isEdit ? jobApi.update(id, payload) : jobApi.create(payload)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employer-jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['job-search'] });
+      queryClient.invalidateQueries({ queryKey: ['job', id] });
       navigate('/employer/jobs');
     },
   });
@@ -53,9 +62,10 @@ export default function JobFormPage() {
   const onSubmit = (values) => {
     const payload = {
       ...values,
-      salaryMin: values.salaryMin ? Number(values.salaryMin) : null,
-      salaryMax: values.salaryMax ? Number(values.salaryMax) : null,
+      salaryMin: parseMoneyInput(values.salaryMin),
+      salaryMax: parseMoneyInput(values.salaryMax),
       vacancies: Number(values.vacancies),
+      expiresAt: values.expiresAt ? `${values.expiresAt}:00` : null,
       skills: values.skills ? values.skills.split(',').map((s) => s.trim()).filter(Boolean) : [],
       tags: values.tags ? values.tags.split(',').map((s) => s.trim()).filter(Boolean) : [],
     };
@@ -75,6 +85,16 @@ export default function JobFormPage() {
               <Controller name="title" control={control} rules={{ required: true }}
                 render={({ field }) => <TextField {...field} fullWidth label="Tiêu đề tin tuyển dụng" required />} />
             </Grid>
+            <Grid item xs={12} md={6}>
+              <Controller name="expiresAt" control={control}
+                rules={{ validate: (value) => !value || new Date(value).getTime() > Date.now() || 'Hạn tuyển phải sau thời điểm hiện tại' }}
+                render={({ field, fieldState }) => (
+                  <TextField {...field} fullWidth type="datetime-local"
+                    label={isEdit ? 'Hạn tuyển (có thể thay đổi)' : 'Hạn tuyển'}
+                    InputLabelProps={{ shrink: true }} error={!!fieldState.error}
+                    helperText={fieldState.error?.message || 'Giờ Việt Nam. Để trống: tự đóng sau 30 ngày kể từ khi đăng tin'} />
+                )} />
+            </Grid>
             <Grid item xs={12}>
               <Controller name="description" control={control} rules={{ required: true }}
                 render={({ field }) => <TextField {...field} fullWidth multiline minRows={4} label="Mô tả công việc" required />} />
@@ -93,11 +113,11 @@ export default function JobFormPage() {
             </Grid>
             <Grid item xs={6} md={3}>
               <Controller name="salaryMin" control={control}
-                render={({ field }) => <TextField {...field} fullWidth type="number" label="Lương tối thiểu" />} />
+                render={({ field }) => <TextField {...field} fullWidth type="text" inputMode="decimal" label="Lương tối thiểu" onChange={(event) => field.onChange(formatMoneyInput(event.target.value))} />} />
             </Grid>
             <Grid item xs={6} md={3}>
               <Controller name="salaryMax" control={control}
-                render={({ field }) => <TextField {...field} fullWidth type="number" label="Lương tối đa" />} />
+                render={({ field }) => <TextField {...field} fullWidth type="text" inputMode="decimal" label="Lương tối đa" onChange={(event) => field.onChange(formatMoneyInput(event.target.value))} />} />
             </Grid>
             <Grid item xs={6} md={3}>
               <Controller name="employmentType" control={control}
@@ -120,12 +140,11 @@ export default function JobFormPage() {
                 render={({ field }) => <TextField {...field} fullWidth type="number" label="Số lượng tuyển" />} />
             </Grid>
             <Grid item xs={6} md={3}>
-              <Controller name="remote" control={control}
+              <Controller name="workType" control={control}
                 render={({ field }) => (
-                  <FormControlLabel
-                    control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                    label="Remote"
-                  />
+                  <TextField {...field} select fullWidth label="Hình thức làm việc">
+                    {WORK_TYPES.map((w) => <MenuItem key={w.value} value={w.value}>{w.label}</MenuItem>)}
+                  </TextField>
                 )} />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -138,7 +157,8 @@ export default function JobFormPage() {
             </Grid>
           </Grid>
 
-          <Button type="submit" variant="contained" size="large" sx={{ mt: 3 }}>
+          {saveMutation.isError && <Alert severity="error" sx={{ mt: 2 }}>Không thể lưu tin tuyển dụng. Vui lòng kiểm tra hạn tuyển và thử lại.</Alert>}
+          <Button type="submit" variant="contained" size="large" sx={{ mt: 3 }} disabled={saveMutation.isPending}>
             {isEdit ? 'Lưu thay đổi' : 'Tạo tin (Nháp)'}
           </Button>
         </Box>

@@ -1,105 +1,427 @@
-version: "3.9"
-
-services:
-  # ---------------------------------------------------------------
-  # Infrastructure
-  # ---------------------------------------------------------------
-  job-db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: job_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports: ["5433:5432"]
-    volumes: [job-db-data:/var/lib/postgresql/data]
-
-  candidate-db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: candidate_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports: ["5434:5432"]
-    volumes: [candidate-db-data:/var/lib/postgresql/data]
-
-  company-db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: company_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    ports: ["5435:5432"]
-    volumes: [company-db-data:/var/lib/postgresql/data]
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"   # S3 API
-      - "9001:9001"   # Web console
-    volumes: [minio-data:/data]
-
-  # ---------------------------------------------------------------
-  # Member 2 backend services
-  # ---------------------------------------------------------------
-  job-service:
-    build: ./job-service
-    depends_on: [job-db]
-    ports: ["8081:8081"]
-    environment:
-      DB_HOST: job-db
-      DB_PORT: 5432
-      DB_NAME: job_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
-      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
-
-  candidate-service:
-    build: ./candidate-service
-    depends_on: [candidate-db, minio]
-    ports: ["8082:8082"]
-    environment:
-      DB_HOST: candidate-db
-      DB_PORT: 5432
-      DB_NAME: candidate_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
-      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
-
-  company-service:
-    build: ./company-service
-    depends_on: [company-db, minio]
-    ports: ["8083:8083"]
-    environment:
-      DB_HOST: company-db
-      DB_PORT: 5432
-      DB_NAME: company_db
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      JWT_ISSUER_URI: http://auth-service:8080/auth/realms/recruitment
-      JWT_JWK_SET_URI: http://auth-service:8080/auth/realms/recruitment/protocol/openid-connect/certs
-
-  # ---------------------------------------------------------------
-  # Frontend
-  # ---------------------------------------------------------------
-  frontend:
-    build: ./frontend
-    ports: ["3000:80"]
-    depends_on: [job-service, candidate-service, company-service]
+networks:
+  rms-network:
+    driver: bridge
 
 volumes:
-  job-db-data:
-  candidate-db-data:
-  company-db-data:
+  postgres-data:
+  rabbitmq-data:
   minio-data:
+  redis-data:
+  elasticsearch-data:
+  kafka-data:
+
+services:
+
+  # ────── Infrastructure ──────
+
+  rms-postgres:
+    image: postgres:16-alpine
+    container_name: rms-postgres
+    networks: [rms-network]
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      POSTGRES_USER: ${POSTGRES_USER:-rms_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: rms
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      AUDIT_DB_PASSWORD: ${AUDIT_DB_PASSWORD:-postgres}
+    command: ["postgres", "-c", "timezone=Asia/Ho_Chi_Minh"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rms_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rms-rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rms-rabbitmq
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitpass}
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  rms-kafka:
+    image: apache/kafka:3.7.0
+    container_name: rms-kafka
+    networks: [rms-network]
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://rms-kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@rms-kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 0"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+
+  rms-redis:
+    image: redis:7-alpine
+    container_name: rms-redis
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispass}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redispass}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rms-minio:
+    image: minio/minio:latest
+    container_name: rms-minio
+    networks: [rms-network]
+    volumes:
+      - minio-data:/data
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rms-elasticsearch:
+    image: elasticsearch:8.14.0
+    container_name: rms-elasticsearch
+    networks: [rms-network]
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'green\\|yellow'"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+  # ────── API Gateway ──────
+
+  rms-gateway:
+    build:
+      context: .
+      dockerfile: gateway/api-gateway/Dockerfile
+      args:
+        SERVICE_MODULE: gateway/api-gateway
+        EXPOSE_PORT: 8080
+    container_name: rms-gateway
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_64_CHAR_MINIMUM_SECRET_KEY_FOR_HS256_ALGORITHM}
+      REDIS_HOST: rms-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+    ports:
+      - "8080:8080"    # Primary entry point
+    stop_grace_period: 35s
+    depends_on:
+      rms-redis:
+        condition: service_healthy
+
+  # ────── 1. IAM Service ──────
+
+  rms-iam:
+    build:
+      context: .
+      dockerfile: services/iam-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/iam-service
+        EXPOSE_PORT: 8081
+    container_name: rms-iam
+    networks: [rms-network]
+    stop_grace_period: 35s
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      IAM_DB_URL: jdbc:postgresql://rms-postgres:5432/rms?currentSchema=iam_db
+      IAM_DB_USER: rms_app
+      IAM_DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_64_CHAR_MINIMUM_SECRET_KEY_FOR_HS256_ALGORITHM}
+      RABBITMQ_HOST: rms-rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+      REDIS_HOST: rms-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
+      SMTP_HOST: ${SMTP_HOST:-smtp.sendgrid.net}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-apikey}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+      SYSADMIN_EMAIL: ${SYSADMIN_EMAIL:-sysadmin@rms.local}
+      SYSADMIN_INITIAL_PASSWORD: ${SYSADMIN_INITIAL_PASSWORD:-Password123!}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-rabbitmq:
+        condition: service_healthy
+      rms-redis:
+        condition: service_healthy
+
+  # ────── 2. Candidate Service ──────
+
+  rms-candidate:
+    build:
+      context: .
+      dockerfile: services/candidate-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/candidate-service
+        EXPOSE_PORT: 8082
+    container_name: rms-candidate
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      DB_HOST: rms-postgres
+      DB_PORT: 5432
+      DB_NAME: rms?currentSchema=candidate_db
+      DB_USER: rms_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      MINIO_ENDPOINT: http://rms-minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      RABBITMQ_HOST: rms-rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+      ATS_SERVICE_URL: http://rms-ats:8084
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-minio:
+        condition: service_healthy
+
+  # ────── 3. Job Service ──────
+
+  rms-job:
+    build:
+      context: .
+      dockerfile: services/job-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/job-service
+        EXPOSE_PORT: 8083
+    container_name: rms-job
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      DB_HOST: rms-postgres
+      DB_PORT: 5432
+      DB_NAME: rms?currentSchema=job_db
+      DB_USER: rms_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      ELASTICSEARCH_HOST: rms-elasticsearch
+      COMPANY_SERVICE_URL: http://rms-company:8087
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+      RABBITMQ_HOST: rms-rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-elasticsearch:
+        condition: service_healthy
+
+  # ────── 4. ATS Service ──────
+
+  rms-ats:
+    build:
+      context: .
+      dockerfile: services/ats-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/ats-service
+        EXPOSE_PORT: 8084
+    container_name: rms-ats
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      ATS_DATABASE_URL: jdbc:postgresql://rms-postgres:5432/rms?currentSchema=ats_db
+      ATS_DATABASE_USERNAME: rms_app
+      ATS_DATABASE_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: rms-kafka:9092
+      RABBITMQ_HOST: rms-rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+      DEV_MODE: "false"
+      MOCK_INTERNAL_SERVICES: "false"
+      JOB_SERVICE_URL: http://rms-job:8083
+      PROFILE_SERVICE_URL: http://rms-candidate:8082
+      IAM_SERVICE_URL: http://rms-iam:8081
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-kafka:
+        condition: service_started
+      rms-rabbitmq:
+        condition: service_healthy
+
+  # ────── 5. Interview Service ──────
+
+  rms-interview:
+    build:
+      context: .
+      dockerfile: services/interview-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/interview-service
+        EXPOSE_PORT: 8085
+    container_name: rms-interview
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      SPRING_DATASOURCE_URL: jdbc:postgresql://rms-postgres:5432/rms?currentSchema=interview_db
+      SPRING_DATASOURCE_USERNAME: rms_app
+      SPRING_DATASOURCE_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      KAFKA_BOOTSTRAP_SERVERS: rms-kafka:9092
+      DEV_MODE: "false"
+      MOCK_INTERNAL_SERVICES: "false"
+      ATS_SERVICE_URL: http://rms-ats:8084
+      USER_SERVICE_URL: http://rms-iam:8081
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-kafka:
+        condition: service_started
+
+  # ────── 6. Offer Service ──────
+
+  rms-offer:
+    build:
+      context: .
+      dockerfile: services/offer-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/offer-service
+        EXPOSE_PORT: 8086
+    container_name: rms-offer
+    networks: [rms-network]
+    stop_grace_period: 35s
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      OFFER_DB_URL: jdbc:postgresql://rms-postgres:5432/rms?currentSchema=offer_db
+      OFFER_DB_USER: rms_app
+      OFFER_DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      RABBITMQ_HOST: rms-rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+      REDIS_HOST: rms-redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
+      ATS_SERVICE_URL: http://rms-ats:8084
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-rabbitmq:
+        condition: service_healthy
+      rms-redis:
+        condition: service_healthy
+
+  # ────── 7. Company Service ──────
+
+  rms-company:
+    build:
+      context: .
+      dockerfile: services/company-service/Dockerfile
+      args:
+        SERVICE_MODULE: services/company-service
+        EXPOSE_PORT: 8087
+    container_name: rms-company
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_TOOL_OPTIONS: -Duser.timezone=Asia/Ho_Chi_Minh
+      DB_HOST: rms-postgres
+      DB_PORT: 5432
+      DB_NAME: rms?currentSchema=company_db
+      DB_USER: rms_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:-postgres}
+      IAM_SERVICE_URL: http://rms-iam:8081
+      MINIO_ENDPOINT: http://rms-minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
+      RABBITMQ_HOST: rms-rabbitmq
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+      RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
+    depends_on:
+      rms-postgres:
+        condition: service_healthy
+      rms-minio:
+        condition: service_healthy
+      rms-rabbitmq:
+        condition: service_healthy
+
+  # ────── Frontend UI ──────
+
+  rms-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rms-frontend
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "5173:80"     # Frontend accessible on port 5173
+    depends_on:
+      - rms-gateway
+
+  # ────── Nginx (Ingress Reverse Proxy) ──────
+
+  rms-nginx:
+    image: nginx:alpine
+    container_name: rms-nginx
+    networks: [rms-network]
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - rms-gateway

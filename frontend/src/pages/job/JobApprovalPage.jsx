@@ -15,13 +15,13 @@ import StatusChip from '../../components/common/StatusChip';
 export default function JobApprovalPage() {
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['jobs-all-for-approval'],
-    queryFn: () => jobApi.list({}),
+    queryKey: ['employer-jobs'],
+    queryFn: () => jobApi.listForEmployer({}),
   });
 
   const decide = useMutation({
     mutationFn: ({ id, targetStatus, note }) => jobApi.changeStatus(id, { targetStatus, note }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['jobs-all-for-approval'] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['employer-jobs'] }),
   });
 
   if (isLoading) return <LoadingState />;
@@ -53,11 +53,11 @@ export default function JobApprovalPage() {
               <TableCell align="right">
                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                   <Button size="small" variant="contained" color="success"
-                    onClick={() => decide.mutate({ id: job.id, targetStatus: 'APPROVED', note: 'Approved' })}>
+                    onClick={() => decide.mutate({ id: job.id, targetStatus: 'PUBLISHED', note: 'Approved' })}>
                     Duyệt
                   </Button>
                   <Button size="small" variant="outlined" color="error"
-                    onClick={() => decide.mutate({ id: job.id, targetStatus: 'REJECTED', note: 'Rejected' })}>
+                    onClick={() => decide.mutate({ id: job.id, targetStatus: 'DRAFT', note: 'Rejected' })}>
                     Từ chối
                   </Button>
                 </Stack>
