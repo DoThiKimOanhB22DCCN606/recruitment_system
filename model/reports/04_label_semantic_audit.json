@@ -1,0 +1,229 @@
+{
+  "vietnamese_audit": {
+    "source_dataset": "Vietnamese CV-JD (turn1300_v3_union_final)",
+    "language": "Vietnamese",
+    "label_format": "Continuous 1-9 scale (from LLM consensus)",
+    "original_label_columns": {
+      "relevance_score": "Per-annotator relevance score (1-9)",
+      "skills_match": "Per-annotator skills match score (1-9)",
+      "experience_match": "Per-annotator experience match score (1-9)",
+      "education_match": "Per-annotator education match score (1-9)",
+      "justification": "Free-text justification in Vietnamese"
+    },
+    "consensus_columns": {
+      "relevance_median_4model": "Median of 4 LLM relevance scores",
+      "relevance_median_no_cohere": "Median of 3 LLM scores (excl. Cohere)",
+      "is_relevant_median_4model_ge5": "Binary: median ≥ 5",
+      "is_relevant_median_no_cohere_ge5": "Binary: median ≥ 5 (excl. Cohere)"
+    },
+    "labeling_method": {
+      "type": "LLM-generated (automated)",
+      "annotators": [
+        "claude",
+        "cohere",
+        "gptoss",
+        "llama"
+      ],
+      "no_cohere_annotators": [
+        "claude",
+        "gptoss",
+        "llama"
+      ],
+      "consensus_method": "Median of annotator scores",
+      "relevant_threshold": 5,
+      "human_annotations": false,
+      "annotation_guidelines": "Not explicitly documented; each LLM used its own interpretation"
+    },
+    "cv_generation": {
+      "method": "LLM-generated (llama-3.3-70b-versatile)",
+      "total_cvs": 130,
+      "categories": 13,
+      "levels": [
+        "L1",
+        "L1b",
+        "L2",
+        "L2b",
+        "L3",
+        "L3b",
+        "L4",
+        "L4b",
+        "P",
+        "P2"
+      ],
+      "is_synthetic": true,
+      "implication": "CVs are synthetic, not real candidate resumes. This means the relevance judgments are about synthetic CV vs. real JD pairs."
+    },
+    "score_distribution": {
+      "scale": "1-9 continuous",
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.19,
+      "median": 5.0,
+      "std": 1.96,
+      "below_threshold_count": 905,
+      "at_or_above_threshold_count": 1545,
+      "below_threshold_pct": 36.9
+    },
+    "annotator_tendencies": {
+      "claude": {
+        "mean_relevance": 4.64,
+        "tendency": "strict"
+      },
+      "cohere": {
+        "mean_relevance": 5.8,
+        "tendency": "lenient"
+      },
+      "gptoss": {
+        "mean_relevance": 5.78,
+        "tendency": "lenient"
+      },
+      "llama": {
+        "mean_relevance": 5.22,
+        "tendency": "lenient"
+      }
+    },
+    "disagreement": {
+      "mean_range": 1.95,
+      "median_range": 2.0,
+      "high_disagreement_count": 44,
+      "high_disagreement_pct": 1.8,
+      "max_range": 7.0
+    },
+    "relevance_definition": {
+      "stated_definition": "Not formally documented",
+      "inferred_criteria": [
+        "Skills match between CV and JD",
+        "Experience match (years and domain)",
+        "Education match",
+        "Overall relevance score"
+      ],
+      "scoring_dimensions": [
+        "relevance_score (overall)",
+        "skills_match",
+        "experience_match",
+        "education_match"
+      ],
+      "positive_definition": "Median relevance score ≥ 5 on 1-9 scale",
+      "negative_definition": "Median relevance score < 5 on 1-9 scale",
+      "relevance_scope": "Overall suitability (multi-dimensional: skills, experience, education)"
+    }
+  },
+  "english_audit": {
+    "source_dataset": "English CV-JD (HuggingFace Parquet)",
+    "language": "English",
+    "label_format": "Implicit binary (presence in relevant_resume_ids = positive)",
+    "original_label_columns": {
+      "relevant_resume_ids": "List of resume IDs relevant to each job"
+    },
+    "labeling_method": {
+      "type": "Unknown (likely rule-based or LLM-generated)",
+      "evidence": [
+        "Perfectly balanced seniority distribution (625 each for Jr/Mid/Sr/Lead)",
+        "Perfectly balanced industry distribution (100 each for 25 industries)",
+        "Exactly 30 relevant resumes per job (uniform)",
+        "All data appears synthetically generated"
+      ],
+      "human_annotations": false,
+      "annotation_guidelines": "Not available"
+    },
+    "label_structure": {
+      "type": "Positive-only (no explicit negatives)",
+      "total_positive_pairs": 75000,
+      "resumes_per_job": 30,
+      "uniform_match_count": true,
+      "negative_pairs": "None explicitly provided",
+      "unlabeled_pairs": "All non-matched pairs are unlabeled (not confirmed negative)"
+    },
+    "relevance_definition": {
+      "stated_definition": "Not formally documented",
+      "inferred_definition": "A resume is 'relevant' to a job if it appears in the job's relevant_resume_ids list. The criteria for relevance are unknown.",
+      "positive_definition": "Presence in relevant_resume_ids",
+      "negative_definition": "Not available (absence ≠ confirmed negative)",
+      "relevance_scope": "Unknown (could be skill-based, role-based, or overall suitability)"
+    },
+    "synthetic_assessment": {
+      "is_synthetic": true,
+      "confidence": "Very high",
+      "indicators": [
+        "Perfect balance in seniority across jobs and resumes",
+        "Perfect balance in industry across jobs and resumes",
+        "Uniform 30 relevant resumes per job",
+        "Structured text patterns in descriptions"
+      ],
+      "implication": "Both the data AND the match labels are likely synthetically generated. Labels may reflect rule-based matching (e.g., industry/seniority/skill overlap) rather than genuine human relevance judgments."
+    }
+  },
+  "audit_table": [
+    {
+      "source_dataset": "Vietnamese (turn1300_v3_union_final)",
+      "original_label": "relevance_median_no_cohere (1-9 scale)",
+      "original_definition": "Median of 3 LLM relevance scores (Claude, GPToss, Llama)",
+      "labeling_method": "LLM-generated (automated, 4 models, consensus by median)",
+      "positive_definition": "Median score ≥ 5 on 1-9 scale",
+      "negative_definition": "Median score < 5 on 1-9 scale",
+      "relevance_scope": "Multi-dimensional: skills, experience, education, overall",
+      "label_reliability": "Partially verified (LLM consensus, no human validation)",
+      "mapping_status": "Conditional mapping (1-9 → 0-3 requires calibration)"
+    },
+    {
+      "source_dataset": "Vietnamese (per-annotator)",
+      "original_label": "relevance_score per model (1-9 scale)",
+      "original_definition": "Individual LLM model's relevance assessment",
+      "labeling_method": "LLM-generated (individual model)",
+      "positive_definition": "Score ≥ 5",
+      "negative_definition": "Score < 5",
+      "relevance_scope": "Overall suitability with justification",
+      "label_reliability": "Unknown (no inter-model calibration guarantee)",
+      "mapping_status": "Conditional mapping (individual scores less reliable than consensus)"
+    },
+    {
+      "source_dataset": "English (matches)",
+      "original_label": "Presence in relevant_resume_ids (binary)",
+      "original_definition": "Resume is listed as relevant to job",
+      "labeling_method": "Unknown (likely rule-based or synthetic generation)",
+      "positive_definition": "Resume ID appears in job's relevant_resume_ids",
+      "negative_definition": "Not available (unlisted ≠ irrelevant)",
+      "relevance_scope": "Unknown (criteria not documented)",
+      "label_reliability": "Unknown (synthetic data, no annotation methodology)",
+      "mapping_status": "Conditional mapping (positive → label ≥ 1, but grade unknown)"
+    }
+  ],
+  "incompatibilities": [
+    {
+      "type": "Different label scales",
+      "severity": "HIGH",
+      "description": "Vietnamese uses continuous 1-9 scale (from LLM median). English uses implicit binary (present/absent in match list). These cannot be directly aligned.",
+      "resolution": "Map Vietnamese 1-9 to common 0-3 rubric via calibrated thresholds. Map English positives to common rubric using structured feature analysis."
+    },
+    {
+      "type": "Different matching criteria",
+      "severity": "HIGH",
+      "description": "Vietnamese: multi-dimensional (skills + experience + education) with justifications. English: unknown criteria (possibly rule-based on metadata similarity).",
+      "resolution": "Use Vietnamese justifications to understand scoring criteria. For English, analyze matches to reverse-engineer matching criteria."
+    },
+    {
+      "type": "Different annotation quality",
+      "severity": "MEDIUM",
+      "description": "Vietnamese: 4 LLM annotators with consensus mechanism and justifications. English: unknown annotation source with no quality assessment.",
+      "resolution": "Vietnamese labels have better provenance but still lack human validation. Both require human-validated test set."
+    },
+    {
+      "type": "Different data authenticity",
+      "severity": "MEDIUM",
+      "description": "Vietnamese: real JDs from TopCV + synthetic CVs from LLM. English: both jobs and resumes appear fully synthetic.",
+      "resolution": "Document data provenance. Consider that model may learn different patterns from synthetic vs. semi-real data."
+    },
+    {
+      "type": "Different definitions of positive and negative",
+      "severity": "HIGH",
+      "description": "Vietnamese: explicit positive and negative pairs (above/below threshold). English: positive-only (no confirmed negatives). Absent pairs are unlabeled, not negative.",
+      "resolution": "Do not automatically assign label 0 to unlisted English pairs. Use PU-learning techniques or careful negative sampling."
+    },
+    {
+      "type": "Different relevance granularity",
+      "severity": "MEDIUM",
+      "description": "Vietnamese provides fine-grained 1-9 scores enabling graded relevance. English provides only binary (relevant/not-in-list) with no granularity.",
+      "resolution": "For the common rubric (0-3), Vietnamese can be mapped using score thresholds. English positives need scoring based on structured feature analysis."
+    }
+  ]
+}

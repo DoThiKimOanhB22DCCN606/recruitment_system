@@ -1,0 +1,131 @@
+{
+  "esco": {
+    "occupations": {
+      "total": 237,
+      "columns": [
+        "uri",
+        "title"
+      ],
+      "sample_titles": [
+        "computer games, multimedia and software specialised seller",
+        "software developer",
+        "embedded systems software developer",
+        "software analyst",
+        "computer software and multimedia shop manager"
+      ]
+    },
+    "occupation_skills": {
+      "total_relations": 9964,
+      "columns": [
+        "occupation_uri",
+        "occupation_title",
+        "skill_uri",
+        "skill_title",
+        "relation_type"
+      ],
+      "unique_occupations": 234,
+      "unique_skills": 3479,
+      "relation_type_distribution": {
+        "optional": 5662,
+        "essential": 4302
+      }
+    },
+    "skill_broader": {
+      "total_relations": 14833,
+      "columns": [
+        "skill_uri",
+        "skill_title",
+        "broader_uri",
+        "broader_title",
+        "skill_type"
+      ],
+      "unique_skills": 13181,
+      "unique_broader": 2224,
+      "skill_type_distribution": {}
+    },
+    "empty_files": [
+      "skills_list.csv",
+      "skill_relations.csv"
+    ]
+  },
+  "onet": {
+    "technology_skills": {
+      "total": 32773,
+      "columns": [
+        "O*NET-SOC Code",
+        "Title",
+        "Example",
+        "Commodity Code",
+        "Commodity Title",
+        "Hot Technology",
+        "In Demand"
+      ],
+      "unique_onet_codes": 923,
+      "unique_titles": 923,
+      "hot_technology_distribution": {
+        "N": 21247,
+        "Y": 11526
+      }
+    },
+    "crosswalk": {
+      "total": 8632,
+      "columns": [
+        "O*NET-SOC 2019 Crosswalks",
+        "Unnamed: 1",
+        "Unnamed: 2",
+        "Unnamed: 3"
+      ]
+    },
+    "xlsx_files": [
+      {
+        "name": "Alternate_Titles.xlsx",
+        "size_bytes": 1293637
+      },
+      {
+        "name": "ESCO_to_ONET-SOC.xlsx",
+        "size_bytes": 213061
+      },
+      {
+        "name": "Occupation_Data.xlsx",
+        "size_bytes": 102540
+      },
+      {
+        "name": "Technology_Skills.xlsx",
+        "size_bytes": 1239112
+      }
+    ]
+  },
+  "additional": {
+    "skills.csv": {
+      "total_rows": 13939,
+      "columns": [
+        "id",
+        "description"
+      ],
+      "size_bytes": 6223383
+    },
+    "skills_with_names.csv": {
+      "total_rows": 13939,
+      "columns": [
+        "uri",
+        "skill_id",
+        "preferred_label",
+        "alt_labels",
+        "skill_type",
+        "description_en"
+      ],
+      "size_bytes": 6643787
+    },
+    "job_term_taxonomy": {
+      "total_entries": 3684,
+      "type": "list"
+    },
+    "job_terms_unique": {
+      "total_rows": 3684,
+      "columns": [
+        "term",
+        "frequency"
+      ]
+    }
+  }
+}

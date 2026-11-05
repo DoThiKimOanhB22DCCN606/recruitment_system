@@ -1,0 +1,217 @@
+{
+  "jobs_profile": {
+    "total_records": 2500,
+    "columns": [
+      "job_id",
+      "job_title",
+      "seniority",
+      "industry",
+      "must_have_skills",
+      "nice_to_have_skills",
+      "description",
+      "responsibilities",
+      "requirements"
+    ],
+    "unique_job_ids": 2500,
+    "duplicate_job_ids": 0,
+    "missing_values": {
+      "job_id": 0,
+      "job_title": 0,
+      "seniority": 0,
+      "industry": 0,
+      "must_have_skills": 0,
+      "nice_to_have_skills": 0,
+      "description": 0,
+      "responsibilities": 0,
+      "requirements": 0
+    },
+    "seniority_distribution": {
+      "Junior": 855,
+      "Mid": 825,
+      "Senior": 820
+    },
+    "industry_distribution": {
+      "Healthcare": 290,
+      "FinTech": 279,
+      "SaaS": 271,
+      "Logistics": 248,
+      "Cybersecurity": 247,
+      "Travel": 243,
+      "Gaming": 241,
+      "Retail": 237,
+      "EdTech": 225,
+      "E-commerce": 219
+    },
+    "num_industries": 10,
+    "must_have_skills_per_job": {
+      "min": 3,
+      "max": 5,
+      "mean": 4.0,
+      "median": 4.0
+    },
+    "nice_to_have_skills_per_job": {
+      "min": 1,
+      "max": 1,
+      "mean": 1.0,
+      "median": 1.0
+    },
+    "responsibilities_per_job": {
+      "min": 3,
+      "max": 3,
+      "mean": 3.0,
+      "median": 3.0
+    },
+    "requirements_per_job": {
+      "min": 3,
+      "max": 3,
+      "mean": 3.0,
+      "median": 3.0
+    },
+    "description_length": {
+      "min": 52,
+      "max": 79,
+      "mean": 64.49,
+      "median": 64.0
+    },
+    "synthetic_indicators": {
+      "seniority_perfectly_balanced": false,
+      "industry_perfectly_balanced": false,
+      "seniority_values": {
+        "Junior": 855,
+        "Mid": 825,
+        "Senior": 820
+      },
+      "industry_count_unique": 10
+    }
+  },
+  "resumes_profile": {
+    "total_records": 10000,
+    "columns": [
+      "resume_id",
+      "role",
+      "seniority",
+      "years_experience",
+      "industry",
+      "education",
+      "skills",
+      "summary",
+      "experience_bullets"
+    ],
+    "unique_resume_ids": 10000,
+    "duplicate_resume_ids": 0,
+    "missing_values": {
+      "resume_id": 0,
+      "role": 0,
+      "seniority": 0,
+      "years_experience": 0,
+      "industry": 0,
+      "education": 0,
+      "skills": 0,
+      "summary": 0,
+      "experience_bullets": 0
+    },
+    "seniority_distribution": {
+      "Junior": 3372,
+      "Mid": 3365,
+      "Senior": 3263
+    },
+    "industry_distribution": {
+      "Retail": 1084,
+      "E-commerce": 1018,
+      "Gaming": 1018,
+      "SaaS": 1014,
+      "Logistics": 1012,
+      "Travel": 992,
+      "Cybersecurity": 968,
+      "EdTech": 967,
+      "Healthcare": 964,
+      "FinTech": 963
+    },
+    "education_distribution": {
+      "BSc": 2071,
+      "MBA": 2031,
+      "MSc": 1980,
+      "BA": 1965,
+      "High School": 1953
+    },
+    "years_experience": {
+      "min": 0,
+      "max": 12,
+      "mean": 4.63,
+      "median": 4.0,
+      "std": 3.6
+    },
+    "skills_per_resume": {
+      "min": 5,
+      "max": 8,
+      "mean": 6.49,
+      "median": 6.0
+    },
+    "experience_bullets_per_resume": {
+      "min": 3,
+      "max": 3,
+      "mean": 3.0,
+      "median": 3.0
+    },
+    "summary_length": {
+      "min": 46,
+      "max": 74,
+      "mean": 58.56,
+      "median": 58.0
+    },
+    "synthetic_indicators": {
+      "seniority_perfectly_balanced": false,
+      "industry_perfectly_balanced": false
+    }
+  },
+  "matches_profile": {
+    "total_match_records": 2500,
+    "unique_job_ids_in_matches": 2500,
+    "total_positive_pairs": 75000,
+    "unique_resume_ids_referenced": 9971,
+    "resumes_per_job": {
+      "min": 30,
+      "max": 30,
+      "mean": 30.0,
+      "median": 30.0,
+      "all_same": true
+    },
+    "fk_validation": {
+      "orphan_job_ids": [],
+      "orphan_job_ids_count": 0,
+      "orphan_resume_ids": [],
+      "orphan_resume_ids_count": 0,
+      "unreferenced_jobs_count": 0,
+      "unreferenced_resumes_count": 29,
+      "all_job_fks_valid": true,
+      "all_resume_fks_valid": true
+    },
+    "duplicate_relationships": 0
+  },
+  "quality_issues": [
+    {
+      "severity": "WARNING",
+      "category": "Synthetic Data",
+      "description": "Every job has exactly 30 relevant resumes. This is unrealistic and confirms synthetic generation.",
+      "recommendation": "Document this limitation. The uniformity may affect negative sampling and evaluation."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Label Coverage",
+      "description": "Only positive match relationships exist. No verified negative pairs. Unlisted pairs are unlabeled, not confirmed negative.",
+      "recommendation": "Use positive-unlabeled learning approach. Generate negatives carefully with false-negative safeguards."
+    },
+    {
+      "severity": "LOW",
+      "category": "Coverage",
+      "description": "29 resumes are never referenced in any match.",
+      "recommendation": "Investigate whether these should be excluded or are valid negatives."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Label Quality",
+      "description": "Match annotation methodology is unknown. The synthetic data patterns suggest rule-based or LLM-based generation.",
+      "recommendation": "Treat labels as weak supervision. Validate a sample against the common relevance rubric."
+    }
+  ]
+}

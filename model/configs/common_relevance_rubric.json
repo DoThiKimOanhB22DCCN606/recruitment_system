@@ -1,0 +1,130 @@
+{
+  "rubric": {
+    "0": {
+      "name": "Not Relevant",
+      "definition": "The CV has no meaningful alignment with the core requirements of the JD.",
+      "criteria": [
+        "No overlap in required skills",
+        "Completely different industry and role with no transferable experience",
+        "No relevant experience or qualifications"
+      ]
+    },
+    "1": {
+      "name": "Low Relevance",
+      "definition": "The CV has some related skills or experience but does not satisfy important requirements.",
+      "criteria": [
+        "Some skill overlap but missing most core requirements",
+        "Related industry but different role specialization",
+        "Entry-level experience for a position requiring significant experience",
+        "Transferable soft skills but lacking technical requirements"
+      ]
+    },
+    "2": {
+      "name": "Relevant",
+      "definition": "The CV satisfies most core requirements, with some gaps in preferred skills or experience.",
+      "criteria": [
+        "Meets majority of must-have skills",
+        "Relevant role experience in similar domain",
+        "Appropriate seniority level (within one level)",
+        "May lack some preferred/nice-to-have qualifications"
+      ]
+    },
+    "3": {
+      "name": "Highly Relevant",
+      "definition": "The CV demonstrates strong alignment with the required skills, responsibilities, and relevant experience.",
+      "criteria": [
+        "Meets all or nearly all must-have skills",
+        "Strong relevant experience in the same or closely related role",
+        "Appropriate or exceeding seniority level",
+        "Has many preferred/nice-to-have qualifications",
+        "Industry and domain experience aligned"
+      ]
+    }
+  },
+  "relevance_criteria": {
+    "required_skills": {
+      "name": "Required Skills",
+      "weight": "Primary",
+      "description": "Whether the candidate demonstrates the skills required by the JD.",
+      "matching_levels": {
+        "exact_match": "Skill name matches exactly",
+        "equivalent": "Different name but same skill (e.g., PostgreSQL = Postgres)",
+        "synonym": "Industry-recognized synonym",
+        "related": "Related or transferable skill in the same family",
+        "insufficient": "No clear evidence of the skill"
+      }
+    },
+    "role_responsibilities": {
+      "name": "Role and Responsibilities",
+      "weight": "Primary",
+      "description": "Whether the candidate's previous work experience is relevant to the target job."
+    },
+    "experience_seniority": {
+      "name": "Experience and Seniority",
+      "weight": "Secondary",
+      "description": "Years of experience and seniority level alignment.",
+      "note": "Do not automatically reject candidates for missing years when the JD does not define a strict minimum."
+    },
+    "industry_domain": {
+      "name": "Industry and Domain",
+      "weight": "Secondary",
+      "description": "Relevant domain or industry experience.",
+      "note": "Industry mismatch should not automatically imply irrelevance."
+    },
+    "preferred_skills": {
+      "name": "Preferred Skills",
+      "weight": "Tertiary",
+      "description": "Additional skills listed as preferred or nice-to-have.",
+      "note": "Should not have the same penalty as missing mandatory requirements."
+    }
+  },
+  "evidence_states": {
+    "present": "The CV contains evidence of the skill or qualification.",
+    "absent": "There is sufficient evidence that the candidate does not meet the criterion.",
+    "unknown": "The CV does not provide enough information to determine whether the candidate meets the criterion. Absence of a skill in the CV does not necessarily prove the candidate does not possess it."
+  },
+  "constraint_types": {
+    "hard_constraint": {
+      "definition": "Explicit mandatory conditions that cannot reasonably be substituted, such as legally required certifications or clearly non-negotiable conditions."
+    },
+    "soft_criterion": {
+      "definition": "Skills, responsibilities, experience, seniority, industry, and preferred qualifications that can be assessed by degree of alignment."
+    }
+  },
+  "vn_to_common_thresholds": {
+    "description": "Map Vietnamese LLM consensus scores (1-9 scale, median of 3 models) to the common 0-3 relevance rubric.",
+    "mapping": {
+      "0": {
+        "vn_range": [
+          1.0,
+          2.5
+        ],
+        "label": "Not Relevant"
+      },
+      "1": {
+        "vn_range": [
+          2.5,
+          4.5
+        ],
+        "label": "Low Relevance"
+      },
+      "2": {
+        "vn_range": [
+          4.5,
+          6.5
+        ],
+        "label": "Relevant"
+      },
+      "3": {
+        "vn_range": [
+          6.5,
+          9.0
+        ],
+        "label": "Highly Relevant"
+      }
+    },
+    "boundary_handling": "Boundary values (2.5, 4.5, 6.5) are assigned to the higher category. This is a conditional mapping that should be validated against human-annotated samples.",
+    "confidence": "conditional",
+    "validation_required": true
+  }
+}

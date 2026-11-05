@@ -1,0 +1,810 @@
+{
+  "jobs_profile": {
+    "total_records": 1300,
+    "columns": [
+      "title",
+      "url",
+      "company",
+      "company_address",
+      "crawled_date",
+      "category",
+      "job_id",
+      "deadline",
+      "is_expired",
+      "job_salary",
+      "salary_min",
+      "salary_max",
+      "salary_type",
+      "salary_note",
+      "has_commission",
+      "job_location",
+      "education_level",
+      "education_field",
+      "technical_skills",
+      "soft_skills",
+      "languages",
+      "certificates",
+      "gender_requirement",
+      "experience",
+      "requirements_tags",
+      "specializations",
+      "job_description",
+      "job_requirements",
+      "job_benefits",
+      "working_time",
+      "category_key"
+    ],
+    "dtypes": {
+      "title": "object",
+      "url": "object",
+      "company": "object",
+      "company_address": "object",
+      "crawled_date": "object",
+      "category": "object",
+      "job_id": "object",
+      "deadline": "object",
+      "is_expired": "bool",
+      "job_salary": "object",
+      "salary_min": "float64",
+      "salary_max": "float64",
+      "salary_type": "object",
+      "salary_note": "object",
+      "has_commission": "bool",
+      "job_location": "object",
+      "education_level": "object",
+      "education_field": "object",
+      "technical_skills": "object",
+      "soft_skills": "object",
+      "languages": "object",
+      "certificates": "float64",
+      "gender_requirement": "object",
+      "experience": "object",
+      "requirements_tags": "object",
+      "specializations": "object",
+      "job_description": "object",
+      "job_requirements": "object",
+      "job_benefits": "object",
+      "working_time": "object",
+      "category_key": "object"
+    },
+    "missing_values": {
+      "title": 0,
+      "url": 0,
+      "company": 0,
+      "company_address": 65,
+      "crawled_date": 0,
+      "category": 0,
+      "job_id": 0,
+      "deadline": 65,
+      "is_expired": 0,
+      "job_salary": 0,
+      "salary_min": 430,
+      "salary_max": 450,
+      "salary_type": 0,
+      "salary_note": 1299,
+      "has_commission": 0,
+      "job_location": 62,
+      "education_level": 11,
+      "education_field": 1297,
+      "technical_skills": 30,
+      "soft_skills": 1131,
+      "languages": 1215,
+      "certificates": 1300,
+      "gender_requirement": 0,
+      "experience": 0,
+      "requirements_tags": 65,
+      "specializations": 65,
+      "job_description": 0,
+      "job_requirements": 0,
+      "job_benefits": 0,
+      "working_time": 194,
+      "category_key": 0
+    },
+    "missing_pct": {
+      "title": 0.0,
+      "url": 0.0,
+      "company": 0.0,
+      "company_address": 5.0,
+      "crawled_date": 0.0,
+      "category": 0.0,
+      "job_id": 0.0,
+      "deadline": 5.0,
+      "is_expired": 0.0,
+      "job_salary": 0.0,
+      "salary_min": 33.08,
+      "salary_max": 34.62,
+      "salary_type": 0.0,
+      "salary_note": 99.92,
+      "has_commission": 0.0,
+      "job_location": 4.77,
+      "education_level": 0.85,
+      "education_field": 99.77,
+      "technical_skills": 2.31,
+      "soft_skills": 87.0,
+      "languages": 93.46,
+      "certificates": 100.0,
+      "gender_requirement": 0.0,
+      "experience": 0.0,
+      "requirements_tags": 5.0,
+      "specializations": 5.0,
+      "job_description": 0.0,
+      "job_requirements": 0.0,
+      "job_benefits": 0.0,
+      "working_time": 14.92,
+      "category_key": 0.0
+    },
+    "category_distribution": {
+      "Bất động sản": 100,
+      "Chăm sóc khách hàng": 100,
+      "Giáo dục": 100,
+      "Hành chính nhân sự": 100,
+      "IT": 100,
+      "Kế toán": 100,
+      "Kỹ sư xây dựng": 100,
+      "Lao động phổ thông": 100,
+      "Marketing": 100,
+      "Ngân hàng": 100,
+      "Nhân viên kinh doanh": 100,
+      "Telesales": 100,
+      "Thiết kế đồ họa": 100
+    },
+    "num_categories": 13,
+    "experience_distribution": {
+      "3 năm": 198,
+      "Không yêu cầu": 184,
+      "2 năm": 182,
+      "Dưới 1 năm": 176,
+      "5 năm": 165,
+      "1 năm": 159,
+      "4 năm": 125,
+      "Trên 5 năm": 111
+    },
+    "education_level_distribution": {
+      "Đại học": 641,
+      "Cao đẳng": 389,
+      "Trung cấp": 169,
+      "Trung học": 89,
+      "Không yêu cầu": 1
+    },
+    "job_description_length": {
+      "min": 6,
+      "max": 4776,
+      "mean": 839.2,
+      "median": 694.0
+    },
+    "job_requirements_length": {
+      "min": 6,
+      "max": 3401,
+      "mean": 516.1,
+      "median": 452.0
+    },
+    "title_length": {
+      "min": 6,
+      "max": 238,
+      "mean": 57.1,
+      "median": 48.0
+    },
+    "duplicate_ids": 0,
+    "unique_ids": 1300,
+    "duplicate_descriptions": 105,
+    "technical_skills_coverage": "1270 (97.7%)"
+  },
+  "cvs_profile": {
+    "total_cvs": 130,
+    "columns": [
+      "cv_id",
+      "name",
+      "category_target",
+      "level",
+      "experience_years",
+      "experience_description",
+      "education_level",
+      "education_field",
+      "technical_skills",
+      "soft_skills",
+      "languages",
+      "certificates",
+      "gender",
+      "search_text"
+    ],
+    "category_distribution": {
+      "Bất động sản": 10,
+      "Chăm sóc khách hàng": 10,
+      "Giáo dục": 10,
+      "Hành chính nhân sự": 10,
+      "IT": 10,
+      "Kế toán": 10,
+      "Kỹ sư xây dựng": 10,
+      "Lao động phổ thông": 10,
+      "Marketing": 10,
+      "Ngân hàng": 10,
+      "Nhân viên kinh doanh": 10,
+      "Telesales": 10,
+      "Thiết kế đồ họa": 10
+    },
+    "num_categories": 13,
+    "level_distribution": {
+      "L1": 13,
+      "L2": 13,
+      "L3": 13,
+      "L4": 13,
+      "P": 13,
+      "L1b": 13,
+      "L2b": 13,
+      "L3b": 13,
+      "L4b": 13,
+      "P2": 13
+    },
+    "num_levels": 10,
+    "experience_years": {
+      "min": 0,
+      "max": 7,
+      "mean": 2.8,
+      "distribution": {
+        "0": 13,
+        "1": 26,
+        "2": 39,
+        "3": 13,
+        "4": 13,
+        "6": 13,
+        "7": 13
+      }
+    },
+    "technical_skills_per_cv": {
+      "min": 1,
+      "max": 9,
+      "mean": 3.6
+    },
+    "search_text_length": {
+      "min": 163,
+      "max": 556,
+      "mean": 309.7
+    }
+  },
+  "labels_profile": {
+    "total_pairs": 2450,
+    "columns": [
+      "cv_id",
+      "job_id",
+      "cv_level",
+      "cv_category",
+      "job_title",
+      "job_category",
+      "pool_methods",
+      "method_ranks",
+      "relevance_median_4model",
+      "relevance_mean_4model",
+      "relevance_median_no_cohere",
+      "relevance_mean_no_cohere",
+      "is_relevant_median_4model_ge5",
+      "is_relevant_median_no_cohere_ge5",
+      "range_relevance_4model",
+      "range_relevance_no_cohere",
+      "range_experience_4model",
+      "range_experience_no_cohere"
+    ],
+    "unique_cvs": 130,
+    "unique_jobs": 675,
+    "missing_values": {
+      "cv_id": 0,
+      "job_id": 0,
+      "cv_level": 0,
+      "cv_category": 0,
+      "job_title": 0,
+      "job_category": 0,
+      "pool_methods": 0,
+      "method_ranks": 0,
+      "relevance_median_4model": 0,
+      "relevance_mean_4model": 0,
+      "relevance_median_no_cohere": 0,
+      "relevance_mean_no_cohere": 0,
+      "is_relevant_median_4model_ge5": 0,
+      "is_relevant_median_no_cohere_ge5": 0,
+      "range_relevance_4model": 0,
+      "range_relevance_no_cohere": 0,
+      "range_experience_4model": 0,
+      "range_experience_no_cohere": 0
+    },
+    "relevance_median_4model_stats": {
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.38,
+      "median": 5.5,
+      "std": 1.88
+    },
+    "relevance_median_4model_distribution": {
+      "1-2": 178,
+      "3-4": 516,
+      "5-6": 849,
+      "7-8": 862,
+      "9-10": 45
+    },
+    "relevance_mean_4model_stats": {
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.36,
+      "median": 5.5,
+      "std": 1.78
+    },
+    "relevance_mean_4model_distribution": {
+      "1-2": 107,
+      "3-4": 529,
+      "5-6": 887,
+      "7-8": 843,
+      "9-10": 84
+    },
+    "relevance_median_no_cohere_stats": {
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.19,
+      "median": 5.0,
+      "std": 1.96
+    },
+    "relevance_median_no_cohere_distribution": {
+      "1-2": 291,
+      "3-4": 614,
+      "5-6": 848,
+      "7-8": 656,
+      "9-10": 41
+    },
+    "relevance_mean_no_cohere_stats": {
+      "min": 1.0,
+      "max": 9.0,
+      "mean": 5.21,
+      "median": 5.33,
+      "std": 1.81
+    },
+    "relevance_mean_no_cohere_distribution": {
+      "1-2": 131,
+      "3-4": 619,
+      "5-6": 875,
+      "7-8": 740,
+      "9-10": 85
+    },
+    "is_relevant_median_4model_ge5_distribution": {
+      "true": 1563,
+      "false": 887
+    },
+    "is_relevant_median_no_cohere_ge5_distribution": {
+      "true": 1545,
+      "false": 905
+    },
+    "range_relevance_4model_stats": {
+      "mean": 2.26,
+      "median": 2.0,
+      "max": 7.0,
+      "high_disagreement_count": 92,
+      "high_disagreement_pct": 3.76
+    },
+    "range_relevance_no_cohere_stats": {
+      "mean": 1.95,
+      "median": 2.0,
+      "max": 7.0,
+      "high_disagreement_count": 44,
+      "high_disagreement_pct": 1.8
+    },
+    "range_experience_4model_stats": {
+      "mean": 2.99,
+      "median": 3.0,
+      "max": 10.0,
+      "high_disagreement_count": 473,
+      "high_disagreement_pct": 19.31
+    },
+    "range_experience_no_cohere_stats": {
+      "mean": 2.26,
+      "median": 2.0,
+      "max": 10.0,
+      "high_disagreement_count": 240,
+      "high_disagreement_pct": 9.8
+    },
+    "cv_category_distribution": {
+      "Chăm sóc khách hàng": 200,
+      "Hành chính nhân sự": 200,
+      "Kế toán": 197,
+      "IT": 196,
+      "Kỹ sư xây dựng": 196,
+      "Bất động sản": 195,
+      "Nhân viên kinh doanh": 194,
+      "Giáo dục": 191,
+      "Telesales": 182,
+      "Marketing": 180,
+      "Ngân hàng": 176,
+      "Lao động phổ thông": 173,
+      "Thiết kế đồ họa": 170
+    },
+    "job_category_distribution": {
+      "Chăm sóc khách hàng": 275,
+      "Hành chính nhân sự": 232,
+      "IT": 220,
+      "Giáo dục": 219,
+      "Telesales": 196,
+      "Nhân viên kinh doanh": 190,
+      "Ngân hàng": 185,
+      "Bất động sản": 165,
+      "Kế toán": 160,
+      "Kỹ sư xây dựng": 157,
+      "Marketing": 154,
+      "Lao động phổ thông": 149,
+      "Thiết kế đồ họa": 148
+    },
+    "cv_level_distribution": {
+      "P2": 289,
+      "P": 261,
+      "L4b": 257,
+      "L3": 249,
+      "L3b": 242,
+      "L4": 235,
+      "L1b": 234,
+      "L2b": 233,
+      "L1": 229,
+      "L2": 221
+    },
+    "duplicate_cv_jd_pairs": 0
+  },
+  "annotations_profile": {
+    "claude": {
+      "total_annotations": 2450,
+      "columns": [
+        "cv_id",
+        "cv_level",
+        "cv_category",
+        "job_id",
+        "job_title",
+        "rank",
+        "es_score",
+        "pool_methods",
+        "best_pool_rank",
+        "method_ranks",
+        "relevance_score",
+        "skills_match",
+        "experience_match",
+        "education_match",
+        "justification",
+        "annotator",
+        "timestamp"
+      ],
+      "relevance_score": {
+        "min": 1,
+        "max": 9,
+        "mean": 4.64,
+        "median": 5.0,
+        "std": 2.01,
+        "distribution": {
+          "1": 112,
+          "2": 288,
+          "3": 428,
+          "4": 372,
+          "5": 347,
+          "6": 396,
+          "7": 295,
+          "8": 175,
+          "9": 37
+        }
+      },
+      "skills_match": {
+        "mean": 4.74,
+        "median": 5.0
+      },
+      "experience_match": {
+        "mean": 5.36,
+        "median": 6.0
+      },
+      "education_match": {
+        "mean": 8.2,
+        "median": 9.0
+      },
+      "justification_length": {
+        "min": 143,
+        "max": 447,
+        "mean": 248.8,
+        "missing": 0
+      }
+    },
+    "cohere": {
+      "total_annotations": 2450,
+      "columns": [
+        "cv_id",
+        "cv_level",
+        "cv_category",
+        "job_id",
+        "job_title",
+        "rank",
+        "es_score",
+        "relevance_score",
+        "skills_match",
+        "experience_match",
+        "education_match",
+        "justification",
+        "annotator",
+        "timestamp",
+        "pool_methods",
+        "best_pool_rank",
+        "method_ranks"
+      ],
+      "relevance_score": {
+        "min": 1,
+        "max": 9,
+        "mean": 5.8,
+        "median": 7.0,
+        "std": 1.95,
+        "distribution": {
+          "1": 55,
+          "2": 115,
+          "3": 222,
+          "4": 236,
+          "5": 391,
+          "6": 181,
+          "7": 756,
+          "8": 465,
+          "9": 29
+        }
+      },
+      "skills_match": {
+        "mean": 5.4,
+        "median": 6.0
+      },
+      "experience_match": {
+        "mean": 6.79,
+        "median": 7.0
+      },
+      "education_match": {
+        "mean": 7.27,
+        "median": 7.0
+      },
+      "justification_length": {
+        "min": 109,
+        "max": 520,
+        "mean": 275.2,
+        "missing": 0
+      }
+    },
+    "gptoss": {
+      "total_annotations": 2450,
+      "columns": [
+        "cv_id",
+        "cv_level",
+        "cv_category",
+        "job_id",
+        "job_title",
+        "rank",
+        "es_score",
+        "relevance_score",
+        "skills_match",
+        "experience_match",
+        "education_match",
+        "justification",
+        "annotator",
+        "timestamp",
+        "pool_methods",
+        "best_pool_rank",
+        "method_ranks"
+      ],
+      "relevance_score": {
+        "min": 1,
+        "max": 9,
+        "mean": 5.78,
+        "median": 6.0,
+        "std": 1.8,
+        "distribution": {
+          "1": 7,
+          "2": 117,
+          "3": 134,
+          "4": 269,
+          "5": 642,
+          "6": 383,
+          "7": 384,
+          "8": 382,
+          "9": 132
+        }
+      },
+      "skills_match": {
+        "mean": 5.43,
+        "median": 6.0
+      },
+      "experience_match": {
+        "mean": 5.63,
+        "median": 5.0
+      },
+      "education_match": {
+        "mean": 8.44,
+        "median": 9.0
+      },
+      "justification_length": {
+        "min": 85,
+        "max": 357,
+        "mean": 191.5,
+        "missing": 0
+      }
+    },
+    "llama": {
+      "total_annotations": 2450,
+      "columns": [
+        "cv_id",
+        "cv_level",
+        "cv_category",
+        "job_id",
+        "job_title",
+        "rank",
+        "es_score",
+        "relevance_score",
+        "skills_match",
+        "experience_match",
+        "education_match",
+        "justification",
+        "annotator",
+        "timestamp",
+        "pool_methods",
+        "best_pool_rank",
+        "method_ranks"
+      ],
+      "relevance_score": {
+        "min": 0,
+        "max": 9,
+        "mean": 5.22,
+        "median": 6.0,
+        "std": 2.18,
+        "distribution": {
+          "0": 3,
+          "1": 62,
+          "2": 383,
+          "3": 149,
+          "4": 341,
+          "5": 221,
+          "6": 509,
+          "7": 326,
+          "8": 401,
+          "9": 55
+        }
+      },
+      "skills_match": {
+        "mean": 5.02,
+        "median": 6.0
+      },
+      "experience_match": {
+        "mean": 5.68,
+        "median": 6.0
+      },
+      "education_match": {
+        "mean": 7.66,
+        "median": 8.0
+      },
+      "justification_length": {
+        "min": 32,
+        "max": 503,
+        "mean": 192.7,
+        "missing": 0
+      }
+    }
+  },
+  "agreement_analysis": {
+    "total_pairs": 2450,
+    "total_cvs": 130,
+    "unique_jobs": 675,
+    "models": [
+      "claude",
+      "cohere",
+      "gptoss",
+      "llama"
+    ],
+    "recommended_label": "consensus_4model.relevance_score.median",
+    "relevant_threshold": 5,
+    "model_means": {
+      "claude": {
+        "relevance_score": 4.6404,
+        "skills_match": 4.742,
+        "experience_match": 5.3645,
+        "education_match": 8.1971
+      },
+      "cohere": {
+        "relevance_score": 5.7996,
+        "skills_match": 5.3984,
+        "experience_match": 6.7857,
+        "education_match": 7.2727
+      },
+      "gptoss": {
+        "relevance_score": 5.7792,
+        "skills_match": 5.4257,
+        "experience_match": 5.6294,
+        "education_match": 8.4392
+      },
+      "llama": {
+        "relevance_score": 5.2176,
+        "skills_match": 5.02,
+        "experience_match": 5.6755,
+        "education_match": 7.6559
+      }
+    },
+    "agreement_4model": {
+      "relevance_score": {
+        "avg_range": 2.2563,
+        "median_range": 2.0,
+        "range_gt4_pct": 3.76,
+        "max_range": 7.0
+      },
+      "skills_match": {
+        "avg_range": 2.6041,
+        "median_range": 2.0,
+        "range_gt4_pct": 10.12,
+        "max_range": 9.0
+      },
+      "experience_match": {
+        "avg_range": 2.9931,
+        "median_range": 3.0,
+        "range_gt4_pct": 19.31,
+        "max_range": 10.0
+      },
+      "education_match": {
+        "avg_range": 2.5302,
+        "median_range": 2.0,
+        "range_gt4_pct": 10.0,
+        "max_range": 9.0
+      }
+    },
+    "agreement_no_cohere": {
+      "relevance_score": {
+        "avg_range": 1.9457,
+        "median_range": 2.0,
+        "range_gt4_pct": 1.8
+      },
+      "skills_match": {
+        "avg_range": 2.2363,
+        "median_range": 2.0,
+        "range_gt4_pct": 6.86
+      },
+      "experience_match": {
+        "avg_range": 2.2604,
+        "median_range": 2.0,
+        "range_gt4_pct": 9.8
+      },
+      "education_match": {
+        "avg_range": 1.9563,
+        "median_range": 2.0,
+        "range_gt4_pct": 4.61
+      }
+    }
+  },
+  "quality_issues": [
+    {
+      "severity": "INFO",
+      "category": "Coverage",
+      "description": "Labels cover 675/1300 jobs (51.9%)",
+      "recommendation": "Document which jobs lack labels and why"
+    },
+    {
+      "severity": "WARNING",
+      "category": "Data Generation",
+      "description": "Vietnamese CVs were generated by LLM (llama-3.3-70b-versatile). They are synthetic, not real candidate resumes.",
+      "recommendation": "Document this as a limitation. Real CV data would improve model reliability."
+    },
+    {
+      "severity": "WARNING",
+      "category": "Label Quality",
+      "description": "All 4 annotators are LLM models (Claude, Cohere, GPToss, Llama). No human annotations exist.",
+      "recommendation": "Create a human-validated test set as specified in the project requirements."
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Agreement",
+      "description": "range_relevance_4model: 3.76% of pairs have range > 4 (high inter-annotator disagreement)",
+      "recommendation": "Review high-disagreement samples for human relabeling"
+    },
+    {
+      "severity": "MEDIUM",
+      "category": "Agreement",
+      "description": "range_relevance_no_cohere: 1.8% of pairs have range > 4 (high inter-annotator disagreement)",
+      "recommendation": "Review high-disagreement samples for human relabeling"
+    },
+    {
+      "severity": "LOW",
+      "category": "Missing Data",
+      "description": "Jobs have significant missing data: certificates=1300, salary_note=1299, education_field=1297, languages=1215, soft_skills=1131",
+      "recommendation": "Assess impact on relevance evaluation"
+    },
+    {
+      "severity": "INFO",
+      "category": "Taxonomy",
+      "description": "ESCO skills_list.csv and skill_relations.csv are empty (0 rows)",
+      "recommendation": "Use occupation_skills.csv and skill_broader_relations.csv instead"
+    }
+  ]
+}

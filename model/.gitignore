@@ -1,5 +1,0 @@
-
-*.parquet
-*.zip
-*.safetensors
-model/
