@@ -1,0 +1,16 @@
+# Model weights & Checkpoints
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.h5
+*.ckpt
+*.engine
+
+# Environments & Data
+venv/
+.venv/
+data/
+*.zip
+*.tar.gz
