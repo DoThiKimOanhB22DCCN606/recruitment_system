@@ -1,0 +1,21 @@
+# AI Models
+*.safetensors
+*.pth
+*.pt
+*.ckpt
+
+# Training outputs
+model/outputs/
+
+# Datasets and embeddings
+model/data/
+model/dataset/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Frontend
+frontend/node_modules/
