@@ -165,7 +165,7 @@ export default function Layout({ children }) {
                   Lịch phỏng vấn
                 </Button>
                 <Button component={RouterLink} to="/candidate/offers" color="inherit" size="small" sx={{ fontWeight: 600 }}>
-                  Offers nhận được
+                  Lời mời nhận được
                 </Button>
                 <Button component={RouterLink} to="/candidate/profile" color="inherit" size="small" sx={{ fontWeight: 600 }}>
                   Hồ sơ cá nhân

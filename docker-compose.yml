@@ -221,7 +221,14 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-rms_rabbit}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-rabbitpass}
       ATS_SERVICE_URL: http://rms-ats:8084
+      JOB_SERVICE_URL: http://rms-job:8083
+      COMPANY_SERVICE_URL: http://rms-company:8087
       INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+      SMTP_HOST: ${SMTP_HOST:-smtp.sendgrid.net}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-apikey}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       rms-postgres:
         condition: service_healthy
@@ -350,7 +357,14 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
       ATS_SERVICE_URL: http://rms-ats:8084
+      JOB_SERVICE_URL: http://rms-job:8083
+      COMPANY_SERVICE_URL: http://rms-company:8087
       INTERNAL_SECRET: ${INTERNAL_SECRET:-uuid-internal-secret}
+      SMTP_HOST: ${SMTP_HOST:-smtp.sendgrid.net}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-apikey}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       rms-postgres:
         condition: service_healthy

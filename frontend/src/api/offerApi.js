@@ -19,5 +19,4 @@ export const offerApi = {
   sendOffer: (id) => apiClient.post(`/api/v1/offers/${id}/send`),
   acceptOffer: (id) => apiClient.post(`/api/v1/offers/${id}/accept`),
   declineOffer: (id) => apiClient.post(`/api/v1/offers/${id}/decline`),
-  withdrawOffer: (id) => apiClient.post(`/api/v1/offers/${id}/withdraw`),
 };

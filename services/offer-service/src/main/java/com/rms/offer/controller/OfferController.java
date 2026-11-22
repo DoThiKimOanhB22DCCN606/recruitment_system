@@ -25,7 +25,7 @@ public class OfferController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('HR_ADMIN')")
+    @PreAuthorize("hasAuthority('HR_ADMIN') or hasAuthority('RECRUITER')")
     public Offer createDraftOffer(
             @RequestHeader("X-Tenant-Id") UUID tenantId,
             @RequestHeader("X-User-Id") UUID userId,
@@ -84,9 +84,9 @@ public class OfferController {
         return offerService.updateOffer(offerId, tenantId, userId, request);
     }
 
-    @PatchMapping("/{offerId}/send")
+    @PostMapping("/{offerId}/send")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('HR_ADMIN')")
+    @PreAuthorize("hasAuthority('HR_ADMIN') or hasAuthority('RECRUITER')")
     public void sendOffer(
             @PathVariable UUID offerId,
             @RequestHeader("X-Tenant-Id") UUID tenantId,
@@ -116,16 +116,6 @@ public class OfferController {
             @RequestHeader("X-Tenant-Id") UUID tenantId,
             @RequestHeader("X-User-Id") UUID userId) {
         offerService.declineOffer(offerId, tenantId, userId);
-    }
-
-    @PatchMapping("/{offerId}/withdraw")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAuthority('HR_ADMIN')")
-    public void withdrawOffer(
-            @PathVariable UUID offerId,
-            @RequestHeader("X-Tenant-Id") UUID tenantId,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userId) {
-        offerService.withdrawOffer(offerId, tenantId, userId);
     }
 
     @GetMapping("/{offerId}/audit-logs")

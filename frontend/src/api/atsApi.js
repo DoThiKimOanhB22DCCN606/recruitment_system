@@ -19,6 +19,7 @@ export const atsApi = {
     });
   },
   getBoard: (jobId) => apiClient.get(`/api/v1/employer/jobs/${toAtsJobId(jobId)}/ats`),
+  getApplication: (applicationId) => apiClient.get(`/api/v1/applications/${applicationId}`),
   getApplicationCv: (applicationId) => apiClient.get(`/api/v1/applications/${applicationId}/cv`, { responseType: 'blob' }),
   moveStage: (applicationId, data) => apiClient.patch(`/api/v1/applications/${applicationId}/stage`, data),
   withdraw: (applicationId, reason) => apiClient.post(`/api/v1/applications/${applicationId}/withdraw`, { reason }),

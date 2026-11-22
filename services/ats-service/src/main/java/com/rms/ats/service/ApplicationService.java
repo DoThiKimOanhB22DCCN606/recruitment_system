@@ -151,7 +151,11 @@ public class ApplicationService {
 
     @Transactional(readOnly = true)
     public ApplicationResponse get(UUID id) {
-        return ApplicationResponse.from(requireReadableApplication(id));
+        Application application = requireReadableApplication(id);
+        String role = RequestContext.role().replaceFirst("(?i)^ROLE_", "");
+        return "HR_ADMIN".equalsIgnoreCase(role) || "RECRUITER".equalsIgnoreCase(role)
+                ? employerApplicationResponse(application)
+                : ApplicationResponse.from(application);
     }
 
     @Transactional(readOnly = true)
@@ -270,10 +274,7 @@ public class ApplicationService {
         notifications.publish(new NotificationEvent(application.getTenantId(), application.getCandidateId(),
                 "APPLICATION_STAGE_CHANGED", "APPLICATION", application.getId(),
                 "Cập nhật quy trình ứng tuyển",
-                "Nhà tuyển dụng " + actorName(RequestContext.userId())
-                        + " đã chuyển hồ sơ của bạn cho vị trí " + jobName(application.getJobId())
-                        + " từ bước " + stageNameVietnamese(previous.getName())
-                        + " sang bước " + stageNameVietnamese(target.getName()) + "."));
+                candidateStageMessage(application, target, actorName(RequestContext.userId()), request.reason())));
         return ApplicationResponse.from(application);
     }
 
@@ -291,7 +292,6 @@ public class ApplicationService {
             throw new ApiException(HttpStatus.CONFLICT, "ERR_TERMINAL_APPLICATION",
                     "Only active applications can be withdrawn");
         }
-
         Map<String, Object> before = Map.of(
                 "stageId", application.getCurrentStage().getId(),
                 "status", application.getStatus());
@@ -633,9 +633,13 @@ public class ApplicationService {
                 String candidateEmail = cv.candidateEmail();
                 if (isPlaceholder(candidateName) || isPlaceholder(candidateEmail)) {
                     var identity = internalClient.getUserIdentity(application.getCandidateId());
-                    if (identity != null && "CANDIDATE".equals(identity.role())
-                            && isPlaceholder(candidateEmail)) {
-                        candidateEmail = identity.email();
+                    if (identity != null && "CANDIDATE".equalsIgnoreCase(identity.role())) {
+                        if (isPlaceholder(candidateName)) {
+                            candidateName = identity.fullName();
+                        }
+                        if (isPlaceholder(candidateEmail)) {
+                            candidateEmail = identity.email();
+                        }
                     }
                 }
                 if (isPlaceholder(candidateName)) {
@@ -681,7 +685,7 @@ public class ApplicationService {
         } catch (RuntimeException ignored) {
             // Keep a useful identifier if IAM is temporarily unavailable.
         }
-        return candidateId.toString();
+        return "ứng viên";
     }
 
     private String actorName(UUID actorId) {
@@ -707,7 +711,7 @@ public class ApplicationService {
     }
 
     private String jobName(String title, long jobId) {
-        return title != null && !title.isBlank() ? "\"" + title.trim() + "\"" : "tin tuyển dụng #" + jobId;
+        return title != null && !title.isBlank() ? "\"" + title.trim() + "\"" : "vị trí tuyển dụng";
     }
 
     private String stageNameVietnamese(String stageName) {
@@ -719,8 +723,44 @@ public class ApplicationService {
             case "offered" -> "Mời nhận việc";
             case "hired" -> "Đã tuyển";
             case "rejected" -> "Từ chối";
-            default -> stageName;
+            default -> "bước tiếp theo";
         };
+    }
+
+    private String candidateStageMessage(
+            Application application, PipelineStage target, String actor, String reason) {
+        String job = jobName(application.getJobId());
+        String recruiter = actor == null || actor.isBlank() ? "Nhà tuyển dụng" : "Nhà tuyển dụng " + actor;
+        String message = switch (target.getName().toLowerCase(java.util.Locale.ROOT)) {
+            case "new" -> "Hồ sơ ứng tuyển của bạn cho vị trí " + job + " đã được tiếp nhận.";
+            case "screening" -> recruiter + " đang xem xét hồ sơ của bạn cho vị trí " + job
+                    + " ở vòng sàng lọc.";
+            case "interviewing" -> "Hồ sơ của bạn đã qua vòng sàng lọc và đang ở giai đoạn phỏng vấn cho vị trí "
+                    + job + ". Nhà tuyển dụng sẽ cập nhật lịch phỏng vấn riêng.";
+            case "offered" -> "Hồ sơ của bạn đã đến giai đoạn đề xuất nhận việc cho vị trí " + job
+                    + ". Vui lòng theo dõi mục Lời mời nhận việc để xem thông tin tiếp theo.";
+            case "hired" -> "Chúc mừng! Nhà tuyển dụng đã xác nhận bạn trúng tuyển vị trí " + job + ".";
+            case "rejected" -> "Rất tiếc, hồ sơ ứng tuyển của bạn cho vị trí " + job
+                    + " chưa được tiếp tục.";
+            default -> recruiter + " đang xem xét hồ sơ của bạn cho vị trí " + job
+                    + " ở giai đoạn " + target.getName() + ".";
+        };
+        String visibleReason = candidateVisibleReason(reason);
+        if (visibleReason == null) return message;
+        String label = "rejected".equalsIgnoreCase(target.getName()) ? "Lý do: " : "Ghi chú từ nhà tuyển dụng: ";
+        return message + " " + label + visibleReason;
+    }
+
+    private String candidateVisibleReason(String reason) {
+        if (reason == null || reason.isBlank()) return null;
+        String value = reason.trim();
+        String normalized = value.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.startsWith("stage transition from ")
+                || normalized.equals("candidate withdrew application")
+                || normalized.equals("offer expired")) {
+            return null;
+        }
+        return value;
     }
 
     private String stageName(Map<UUID, PipelineStage> stageById, UUID stageId) {

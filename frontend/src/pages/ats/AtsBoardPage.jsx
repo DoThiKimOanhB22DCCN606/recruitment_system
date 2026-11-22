@@ -32,6 +32,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { atsApi } from '../../api/atsApi';
 import { jobApi } from '../../api/jobApi';
+import AppSnackbar from '../../components/common/AppSnackbar';
 
 export default function AtsBoardPage() {
   const { jobId } = useParams();
@@ -59,6 +60,9 @@ export default function AtsBoardPage() {
   const [transitionReason, setTransitionReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loadingCvId, setLoadingCvId] = useState(null);
+  const [toast, setToast] = useState({ open: false, severity: 'success', message: '' });
+  const closeToast = () => setToast((current) => ({ ...current, open: false }));
+  const showToast = (message, severity = 'success') => setToast({ open: true, severity, message });
 
   const handleOpenCv = async (app) => {
     const isPdf = app.cvFileName?.toLowerCase().endsWith('.pdf');
@@ -90,7 +94,7 @@ export default function AtsBoardPage() {
       }
     } catch (err) {
       if (pdfTab && !pdfTab.closed) pdfTab.close();
-      alert(err.message || 'Không thể mở CV ứng viên.');
+      showToast(err.message || 'Không thể mở CV ứng viên.', 'error');
     } finally {
       setLoadingCvId(null);
     }
@@ -132,16 +136,22 @@ export default function AtsBoardPage() {
 
   const handleMoveSubmit = async () => {
     if (!selectedApp || !targetStageId) return;
+    const targetStage = (boardData?.stages || []).find((stage) => stage.id === targetStageId);
+    const isRejectTarget = targetStage?.name?.toLowerCase().includes('reject');
+    if (isRejectTarget && !transitionReason.trim()) {
+      showToast('Vui lòng nhập lý do từ chối cụ thể để gửi cho ứng viên.', 'error');
+      return;
+    }
     setSubmitting(true);
     try {
       await atsApi.moveStage(selectedApp.id, {
         newStageId: targetStageId,
-        reason: transitionReason || 'Stage transition from ATS Kanban',
+        reason: transitionReason.trim() || null,
       });
       setOpenTransition(false);
       fetchBoard();
     } catch (err) {
-      alert(err.message || 'Không thể chuyển trạng thái ứng viên.');
+      showToast(err.message || 'Không thể chuyển trạng thái ứng viên.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -166,6 +176,8 @@ export default function AtsBoardPage() {
 
   const applications = boardData?.applications || [];
   const hasApplications = applications.length > 0 || stages.some((stage) => Number(stage.total || 0) > 0);
+  const selectedTargetStage = stages.find((stage) => stage.id === targetStageId);
+  const rejectionReasonRequired = selectedTargetStage?.name?.toLowerCase().includes('reject') || false;
 
   return (
     <Box sx={{ width: '100%', px: 2 }}>
@@ -448,13 +460,21 @@ export default function AtsBoardPage() {
               ))}
             </TextField>
             <TextField
-              label="Ghi chú / Lý do chuyển"
+              label={rejectionReasonRequired
+                ? 'Lý do từ chối (ứng viên sẽ nhận được)'
+                : 'Ghi chú gửi ứng viên (không bắt buộc)'}
               multiline
               rows={3}
               fullWidth
+              required={rejectionReasonRequired}
               value={transitionReason}
               onChange={(e) => setTransitionReason(e.target.value)}
-              placeholder="Nhập lý do đánh giá hoặc ghi chú chuyển trạng thái..."
+              placeholder={rejectionReasonRequired
+                ? 'Nhập lý do cụ thể, dễ hiểu cho ứng viên...'
+                : 'Nhập ghi chú nếu muốn ứng viên biết thêm thông tin...'}
+              helperText={rejectionReasonRequired
+                ? 'Lý do này sẽ được gửi trong thông báo từ chối.'
+                : 'Ghi chú đã nhập sẽ xuất hiện trong thông báo cho ứng viên.'}
             />
           </Stack>
         </DialogContent>
@@ -465,12 +485,18 @@ export default function AtsBoardPage() {
           <Button
             onClick={handleMoveSubmit}
             variant="contained"
-            disabled={submitting || !targetStageId}
+            disabled={submitting || !targetStageId || (rejectionReasonRequired && !transitionReason.trim())}
           >
             {submitting ? 'Đang cập nhật...' : 'Xác nhận chuyển'}
           </Button>
         </DialogActions>
       </Dialog>
+      <AppSnackbar
+        open={toast.open}
+        severity={toast.severity}
+        message={toast.message}
+        onClose={closeToast}
+      />
     </Box>
   );
 }

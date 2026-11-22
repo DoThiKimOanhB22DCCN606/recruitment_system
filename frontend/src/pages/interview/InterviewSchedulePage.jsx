@@ -19,18 +19,15 @@ export default function InterviewSchedulePage() {
   const navigate = useNavigate();
 
   const applicationId = searchParams.get('applicationId') || '';
-  const candidateId = searchParams.get('candidateId') || '';
 
   const [formData, setFormData] = useState({
     applicationId: applicationId,
-    candidateId: candidateId,
     interviewType: 'TECHNICAL',
-    scheduledAt: '',
-    durationMinutes: 60,
     meetingUrl: '',
     interviewerEmails: '',
     location: 'Google Meet / Online',
   });
+  const [timeSlots, setTimeSlots] = useState([{ date: '', startTime: '08:00', endTime: '10:00' }]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,17 +36,44 @@ export default function InterviewSchedulePage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSlotChange = (index, field, value) => {
+    setTimeSlots((current) => current.map((slot, slotIndex) => (
+      slotIndex === index ? { ...slot, [field]: value } : slot
+    )));
+  };
+
+  const addTimeSlot = () => {
+    setTimeSlots((current) => [...current, { date: '', startTime: '14:00', endTime: '16:00' }]);
+  };
+
+  const removeTimeSlot = (index) => {
+    setTimeSlots((current) => current.filter((_, slotIndex) => slotIndex !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     try {
+      if (timeSlots.length === 0) {
+        throw new Error('Hãy thêm ít nhất một khung giờ để ứng viên lựa chọn.');
+      }
+      for (const slot of timeSlots) {
+        if (!slot.date || !slot.startTime || !slot.endTime) {
+          throw new Error('Hãy điền ngày, giờ bắt đầu và giờ kết thúc cho từng khung giờ.');
+        }
+        if (slot.endTime <= slot.startTime) {
+          throw new Error('Giờ kết thúc phải sau giờ bắt đầu trong mỗi khung.');
+        }
+        if (new Date(`${slot.date}T${slot.startTime}`).getTime() <= Date.now()) {
+          throw new Error('Các khung giờ phải nằm trong tương lai.');
+        }
+      }
       await interviewApi.schedule({
         applicationId: formData.applicationId,
-        candidateId: formData.candidateId,
         interviewType: formData.interviewType,
-        scheduledAt: formData.scheduledAt ? new Date(formData.scheduledAt).toISOString() : new Date().toISOString(),
-        durationMinutes: parseInt(formData.durationMinutes, 10),
+        durationMinutes: 60,
+        timeSlots,
         meetingUrl: formData.meetingUrl,
         interviewerEmails: formData.interviewerEmails ? formData.interviewerEmails.split(',').map(s => s.trim()) : [],
         location: formData.location,
@@ -78,7 +102,7 @@ export default function InterviewSchedulePage() {
           Lên lịch phỏng vấn ứng viên
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Thông tin phỏng vấn sẽ được gửi email thông báo tới ứng viên và hội đồng tuyển dụng.
+          Thêm một hoặc nhiều khung giờ. Ứng viên sẽ chọn một khung; thời lượng buổi phỏng vấn bằng khoảng thời gian đã chọn.
         </Typography>
 
         {error && (
@@ -89,62 +113,85 @@ export default function InterviewSchedulePage() {
 
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={2.5}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                label="Mã hồ sơ ứng tuyển (Application ID)"
-                name="applicationId"
-                required
-                fullWidth
-                value={formData.applicationId}
-                onChange={handleChange}
-              />
-              <TextField
-                label="Mã ứng viên (Candidate ID)"
-                name="candidateId"
-                required
-                fullWidth
-                value={formData.candidateId}
-                onChange={handleChange}
-              />
-            </Stack>
-
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField
-                select
-                label="Vòng / Hình thức phỏng vấn"
-                name="interviewType"
-                required
-                fullWidth
-                value={formData.interviewType}
-                onChange={handleChange}
-              >
-                <MenuItem value="HR">Phỏng vấn sơ vấn HR (HR Screening)</MenuItem>
-                <MenuItem value="TECHNICAL">Phỏng vấn chuyên môn (Technical Interview)</MenuItem>
-                <MenuItem value="BEHAVIORAL">Phỏng vấn hành vi / Quản lý (Behavioral)</MenuItem>
-                <MenuItem value="FINAL">Phỏng vấn Giám đốc / Vòng cuối (Final Round)</MenuItem>
-              </TextField>
-
-              <TextField
-                label="Thời lượng (phút)"
-                name="durationMinutes"
-                type="number"
-                required
-                fullWidth
-                value={formData.durationMinutes}
-                onChange={handleChange}
-              />
-            </Stack>
-
             <TextField
-              label="Thời gian phỏng vấn"
-              name="scheduledAt"
-              type="datetime-local"
+              label="Mã hồ sơ ứng tuyển (Application ID)"
+              name="applicationId"
               required
               fullWidth
-              InputLabelProps={{ shrink: true }}
-              value={formData.scheduledAt}
+              value={formData.applicationId}
               onChange={handleChange}
             />
+
+            <TextField
+              select
+              label="Vòng / Hình thức phỏng vấn"
+              name="interviewType"
+              required
+              fullWidth
+              value={formData.interviewType}
+              onChange={handleChange}
+            >
+              <MenuItem value="HR">Phỏng vấn sơ vấn HR (HR Screening)</MenuItem>
+              <MenuItem value="TECHNICAL">Phỏng vấn chuyên môn (Technical Interview)</MenuItem>
+              <MenuItem value="BEHAVIORAL">Phỏng vấn hành vi / Quản lý (Behavioral)</MenuItem>
+              <MenuItem value="FINAL">Phỏng vấn Giám đốc / Vòng cuối (Final Round)</MenuItem>
+            </TextField>
+
+            <Box>
+              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+                Các khung giờ ứng viên có thể chọn
+              </Typography>
+              <Stack spacing={2}>
+                {timeSlots.map((slot, index) => (
+                  <Paper key={index} variant="outlined" sx={{ p: 2 }}>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+                      <TextField
+                        label={`Ngày - Khung ${index + 1}`}
+                        type="date"
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={slot.date}
+                        onChange={(event) => handleSlotChange(index, 'date', event.target.value)}
+                      />
+                      <TextField
+                        label="Từ"
+                        type="time"
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={slot.startTime}
+                        onChange={(event) => handleSlotChange(index, 'startTime', event.target.value)}
+                      />
+                      <TextField
+                        label="Đến"
+                        type="time"
+                        required
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={slot.endTime}
+                        onChange={(event) => handleSlotChange(index, 'endTime', event.target.value)}
+                      />
+                      <Button
+                        color="error"
+                        disabled={timeSlots.length === 1}
+                        onClick={() => removeTimeSlot(index)}
+                      >
+                        Xóa
+                      </Button>
+                    </Stack>
+                  </Paper>
+                ))}
+                <Button
+                  variant="outlined"
+                  onClick={addTimeSlot}
+                  disabled={timeSlots.length >= 10}
+                  sx={{ alignSelf: 'flex-start' }}
+                >
+                  + Thêm khung giờ
+                </Button>
+              </Stack>
+            </Box>
 
             <TextField
               label="Đường dẫn phòng họp online (Google Meet / Zoom)"

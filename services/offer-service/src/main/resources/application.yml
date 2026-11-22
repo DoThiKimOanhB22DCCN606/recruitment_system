@@ -29,6 +29,17 @@ spring:
     port: 5672
     username: ${RABBITMQ_USER:rms_rabbit}
     password: ${RABBITMQ_PASSWORD:CHANGE_ME}
+  mail:
+    host: ${SMTP_HOST:smtp.sendgrid.net}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:apikey}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -48,6 +59,10 @@ management:
 rms:
   internal-secret: ${INTERNAL_SECRET:CHANGE_ME_RANDOM_UUID_FOR_INTERNAL_CALLS}
   ats-service-url: ${ATS_SERVICE_URL:http://localhost:8084}
+  job-service-url: ${JOB_SERVICE_URL:http://localhost:8083}
+  company-service-url: ${COMPANY_SERVICE_URL:http://localhost:8087}
+  mail:
+    from: ${SMTP_FROM:}
 
 resilience4j:
   circuitbreaker:

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Container, Paper, Typography, TextField, Button, Box, Alert, Stack, Link, IconButton, InputAdornment } from '@mui/material';
+import { Container, Paper, Typography, TextField, Button, Box, Stack, Link, IconButton, InputAdornment } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate, Link as RouterLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import AppSnackbar from '../../components/common/AppSnackbar';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ open: false, message: '' });
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,7 +20,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
+    setToast((current) => ({ ...current, open: false }));
     setLoading(true);
     try {
       const u = await login(email, password);
@@ -33,7 +34,10 @@ export default function LoginPage() {
         navigate(from, { replace: true });
       }
     } catch (err) {
-      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email hoặc mật khẩu.');
+      const message = [401, 403].includes(err.status)
+        ? 'Tên đăng nhập hoặc mật khẩu không đúng.'
+        : 'Không thể đăng nhập lúc này. Vui lòng thử lại.';
+      setToast({ open: true, message });
     } finally {
       setLoading(false);
     }
@@ -48,12 +52,6 @@ export default function LoginPage() {
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
           Hệ thống Quản lý Tuyển dụng & Đánh giá ứng viên
         </Typography>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
 
         <Box component="form" onSubmit={handleSubmit}>
           <Stack spacing={2.5}>
@@ -110,6 +108,12 @@ export default function LoginPage() {
           </Link>
         </Stack>
       </Paper>
+      <AppSnackbar
+        open={toast.open}
+        severity="error"
+        message={toast.message}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
     </Container>
   );
 }

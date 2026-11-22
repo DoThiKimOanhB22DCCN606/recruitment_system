@@ -1,6 +1,7 @@
 package com.rms.offer.service;
 
 import com.rms.offer.client.AtsServiceClient;
+import com.rms.offer.client.OfferEmailContextClient;
 import com.rms.offer.dto.OfferRequest;
 import com.rms.offer.entity.AuditLog;
 import com.rms.offer.entity.Offer;
@@ -23,16 +24,22 @@ public class OfferService {
     private final AtsServiceClient atsServiceClient;
     private final com.rms.offer.messaging.OfferEventPublisher offerEventPublisher;
     private final AuditLogRepository auditLogRepository;
+    private final OfferEmailContextClient offerEmailContextClient;
+    private final OfferEmailService offerEmailService;
 
     public OfferService(
             OfferRepository offerRepository,
             AtsServiceClient atsServiceClient,
             com.rms.offer.messaging.OfferEventPublisher offerEventPublisher,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            OfferEmailContextClient offerEmailContextClient,
+            OfferEmailService offerEmailService) {
         this.offerRepository = offerRepository;
         this.atsServiceClient = atsServiceClient;
         this.offerEventPublisher = offerEventPublisher;
         this.auditLogRepository = auditLogRepository;
+        this.offerEmailContextClient = offerEmailContextClient;
+        this.offerEmailService = offerEmailService;
     }
 
     @Transactional
@@ -97,6 +104,8 @@ public class OfferService {
         if (offer.getStatus() != OfferStatus.DRAFT) {
             throw new OfferException("Only DRAFT offers can be sent.");
         }
+        var emailContext = offerEmailContextClient.get(offer.getApplicationId(), tenantId);
+        offerEmailService.send(offer, emailContext);
         String oldStatus = offer.getStatus().name();
         offer.setStatus(OfferStatus.SENT);
         offerRepository.save(offer);
@@ -145,25 +154,6 @@ public class OfferService {
         offerRepository.save(offer);
         logAudit(offerId, tenantId, userId, "DECLINE_OFFER", oldStatus, OfferStatus.DECLINED.name(), "Offer declined by candidate");
         offerEventPublisher.publishOfferStatusChangedEvent(offerId, offer.getApplicationId(), tenantId, oldStatus, OfferStatus.DECLINED.name());
-    }
-
-    @Transactional
-    public void withdrawOffer(UUID offerId, UUID tenantId) {
-        withdrawOffer(offerId, tenantId, null);
-    }
-
-    @Transactional
-    public void withdrawOffer(UUID offerId, UUID tenantId, UUID userId) {
-        Offer offer = getOfferForTenant(offerId, tenantId);
-        if (offer.getStatus() != OfferStatus.DRAFT && offer.getStatus() != OfferStatus.SENT) {
-            throw new OfferException("Only DRAFT or SENT offers can be withdrawn.");
-        }
-        String oldStatus = offer.getStatus().name();
-        offer.setStatus(OfferStatus.WITHDRAWN);
-        offerRepository.save(offer);
-        UUID actor = userId != null ? userId : offer.getCreatedBy();
-        logAudit(offerId, tenantId, actor, "WITHDRAW_OFFER", oldStatus, OfferStatus.WITHDRAWN.name(), "Offer withdrawn by employer");
-        offerEventPublisher.publishOfferStatusChangedEvent(offerId, offer.getApplicationId(), tenantId, oldStatus, OfferStatus.WITHDRAWN.name());
     }
 
     public List<Offer> getOffers(UUID tenantId, UUID candidateId, UUID applicationId) {

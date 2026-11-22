@@ -14,6 +14,10 @@ import {
   Box,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import AddIcon from '@mui/icons-material/Add';
@@ -21,8 +25,10 @@ import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { offerApi } from '../../api/offerApi';
+import { atsApi } from '../../api/atsApi';
 import { useAuth } from '../../context/AuthContext';
 import { formatMoney } from '../../utils/money';
+import AppSnackbar from '../../components/common/AppSnackbar';
 
 export default function OfferListPage() {
   const { hasRole } = useAuth();
@@ -31,13 +37,42 @@ export default function OfferListPage() {
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ open: false, severity: 'success', message: '' });
+  const [sendDialogOffer, setSendDialogOffer] = useState(null);
+  const [sendingOffer, setSendingOffer] = useState(false);
+  const closeToast = () => setToast((current) => ({ ...current, open: false }));
+  const showToast = (message, severity = 'success') => setToast({ open: true, severity, message });
 
   const fetchOffers = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await offerApi.getOffers();
-      setOffers(Array.isArray(data) ? data : data?.content || []);
+      const items = Array.isArray(data) ? data : data?.content || [];
+      if (isEmployer) {
+        const enriched = await Promise.all(items.map(async (item) => {
+          try {
+            const response = await atsApi.getApplication(item.applicationId);
+            const application = response?.data || response?.application || response;
+            return {
+              ...item,
+              candidateName: application?.candidateName
+                || application?.candidateFullName
+                || application?.candidate?.fullName
+                || application?.fullName
+                || item.candidateName,
+              candidateEmail: application?.candidateEmail
+                || application?.candidate?.email
+                || item.candidateEmail,
+            };
+          } catch {
+            return item;
+          }
+        }));
+        setOffers(enriched);
+      } else {
+        setOffers(items);
+      }
     } catch (err) {
       setError(err.message || 'Không thể tải danh sách Offer.');
     } finally {
@@ -49,13 +84,18 @@ export default function OfferListPage() {
     fetchOffers();
   }, []);
 
-  const handleSendOffer = async (offerId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn gửi thư mời này tới ứng viên?')) return;
+  const handleSendOffer = async () => {
+    if (!sendDialogOffer) return;
+    setSendingOffer(true);
     try {
-      await offerApi.sendOffer(offerId);
-      fetchOffers();
+      await offerApi.sendOffer(sendDialogOffer.id);
+      setSendDialogOffer(null);
+      showToast(`Đã gửi thư mời đến ${sendDialogOffer.candidateEmail || 'ứng viên'}.`);
+      await fetchOffers();
     } catch (err) {
-      alert(err.message || 'Không thể gửi Offer.');
+      showToast(err.message || 'Không thể gửi lời mời nhận việc.', 'error');
+    } finally {
+      setSendingOffer(false);
     }
   };
 
@@ -63,10 +103,10 @@ export default function OfferListPage() {
     if (!window.confirm('Bạn có đồng ý nhận lời mời làm việc này?')) return;
     try {
       await offerApi.acceptOffer(offerId);
-      alert('Chúc mừng bạn! Bạn đã đồng ý nhận việc thành công.');
+      showToast('Bạn đã đồng ý nhận lời mời làm việc thành công.');
       fetchOffers();
     } catch (err) {
-      alert(err.message || 'Không thể chấp nhận Offer.');
+      showToast(err.message || 'Không thể chấp nhận lời mời làm việc.', 'error');
     }
   };
 
@@ -76,17 +116,7 @@ export default function OfferListPage() {
       await offerApi.declineOffer(offerId);
       fetchOffers();
     } catch (err) {
-      alert(err.message || 'Không thể từ chối Offer.');
-    }
-  };
-
-  const handleWithdrawOffer = async (offerId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn thu hồi Offer này?')) return;
-    try {
-      await offerApi.withdrawOffer(offerId);
-      fetchOffers();
-    } catch (err) {
-      alert(err.message || 'Không thể thu hồi Offer.');
+      showToast(err.message || 'Không thể từ chối lời mời làm việc.', 'error');
     }
   };
 
@@ -102,8 +132,6 @@ export default function OfferListPage() {
         return <Chip label="Đã từ chối" color="error" size="small" />;
       case 'EXPIRED':
         return <Chip label="Đã hết hạn" color="warning" size="small" />;
-      case 'WITHDRAWN':
-        return <Chip label="Đã thu hồi" size="small" />;
       default:
         return <Chip label={status} size="small" />;
     }
@@ -151,7 +179,7 @@ export default function OfferListPage() {
           <Table>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Mã Offer / Ứng viên</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Ứng viên</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Mức lương đề xuất</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Ngày bắt đầu</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Hạn phản hồi</TableCell>
@@ -164,10 +192,10 @@ export default function OfferListPage() {
                 <TableRow key={item.id} hover>
                   <TableCell>
                     <Typography variant="subtitle2" fontWeight={600}>
-                      {item.candidateName || `Ứng viên #${item.candidateId}`}
+                      {isEmployer ? (item.candidateName || 'Chưa có tên ứng viên') : 'Lời mời của bạn'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Hồ sơ #{item.applicationId}
+                      {isEmployer ? (item.candidateEmail || 'Hồ sơ ứng tuyển') : 'Hồ sơ ứng tuyển của bạn'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -186,22 +214,11 @@ export default function OfferListPage() {
                           variant="contained"
                           color="primary"
                           startIcon={<SendIcon />}
-                          onClick={() => handleSendOffer(item.id)}
+                          onClick={() => setSendDialogOffer(item)}
                         >
                           Gửi ứng viên
                         </Button>
                       )}
-                      {isEmployer && (item.status === 'DRAFT' || item.status === 'SENT') && (
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          onClick={() => handleWithdrawOffer(item.id)}
-                        >
-                          Thu hồi
-                        </Button>
-                      )}
-
                       {!isEmployer && item.status === 'SENT' && (
                         <>
                           <Button
@@ -232,6 +249,34 @@ export default function OfferListPage() {
           </Table>
         </Paper>
       )}
+      <Dialog
+        open={Boolean(sendDialogOffer)}
+        onClose={() => !sendingOffer && setSendDialogOffer(null)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Xác nhận gửi thư mời nhận việc</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Hệ thống sẽ gửi email offer đến ứng viên
+            {sendDialogOffer?.candidateName ? ` ${sendDialogOffer.candidateName}` : ''}
+            {sendDialogOffer?.candidateEmail ? ` (${sendDialogOffer.candidateEmail})` : ''}.
+            Sau khi gửi thành công, trạng thái offer sẽ chuyển thành “Đã gửi”.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setSendDialogOffer(null)} disabled={sendingOffer}>Hủy</Button>
+          <Button onClick={handleSendOffer} variant="contained" startIcon={<SendIcon />} disabled={sendingOffer}>
+            {sendingOffer ? 'Đang gửi email…' : 'Gửi email'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <AppSnackbar
+        open={toast.open}
+        severity={toast.severity}
+        message={toast.message}
+        onClose={closeToast}
+      />
     </Container>
   );
 }

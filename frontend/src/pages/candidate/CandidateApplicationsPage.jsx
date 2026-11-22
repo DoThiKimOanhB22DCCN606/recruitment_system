@@ -18,18 +18,51 @@ import {
 import { Link as RouterLink } from 'react-router-dom';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { atsApi } from '../../api/atsApi';
+import { jobApi } from '../../api/jobApi';
+import { companyApi } from '../../api/companyApi';
+import AppSnackbar from '../../components/common/AppSnackbar';
 
 export default function CandidateApplicationsPage() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [toast, setToast] = useState({ open: false, severity: 'success', message: '' });
+  const closeToast = () => setToast((current) => ({ ...current, open: false }));
+  const showToast = (message, severity = 'success') => setToast({ open: true, severity, message });
 
   const fetchApplications = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await atsApi.getCandidateApplications();
-      setApplications(Array.isArray(data) ? data : data?.content || []);
+      const items = Array.isArray(data) ? data : data?.content || [];
+      const jobIds = [...new Set(items.map((application) => application.jobId).filter(Boolean))];
+      const jobEntries = await Promise.all(jobIds.map(async (jobId) => {
+        try {
+          return [jobId, await jobApi.getJobById(jobId)];
+        } catch {
+          return [jobId, null];
+        }
+      }));
+      const jobsById = new Map(jobEntries);
+      const tenantIds = [...new Set(items.map((application) => application.tenantId).filter(Boolean))];
+      const brandEntries = await Promise.all(tenantIds.map(async (tenantId) => {
+        try {
+          return [tenantId, await companyApi.getBrandByTenant(tenantId)];
+        } catch {
+          return [tenantId, null];
+        }
+      }));
+      const brandsByTenantId = new Map(brandEntries);
+      setApplications(items.map((application) => {
+        const job = jobsById.get(application.jobId);
+        const brand = brandsByTenantId.get(application.tenantId);
+        return {
+          ...application,
+          jobTitle: job?.title || application.jobTitle,
+          companyName: brand?.name || job?.companyName || application.companyName,
+        };
+      }));
     } catch (err) {
       setError(err.message || 'Không thể tải danh sách hồ sơ ứng tuyển.');
     } finally {
@@ -46,25 +79,32 @@ export default function CandidateApplicationsPage() {
     if (reason === null) return;
     try {
       await atsApi.withdraw(applicationId, reason || 'Rút hồ sơ tự nguyện');
+      showToast('Bạn đã rút hồ sơ ứng tuyển.');
       fetchApplications();
     } catch (err) {
-      alert(err.message || 'Không thể rút hồ sơ ứng tuyển.');
+      showToast(err.message || 'Không thể rút hồ sơ ứng tuyển.', 'error');
     }
   };
 
-  const getStatusChip = (status) => {
-    switch (status) {
-      case 'ACTIVE':
-        return <Chip label="Đang xử lý" color="primary" size="small" />;
-      case 'HIRED':
-        return <Chip label="Đã trúng tuyển" color="success" size="small" />;
-      case 'REJECTED':
-        return <Chip label="Từ chối" color="error" size="small" />;
-      case 'WITHDRAWN':
-        return <Chip label="Đã rút hồ sơ" size="small" />;
-      default:
-        return <Chip label={status || 'ACTIVE'} size="small" />;
+  const getStatusChip = (application) => {
+    if (application.status === 'HIRED') return <Chip label="Đã trúng tuyển" color="success" size="small" />;
+    if (application.status === 'REJECTED') return <Chip label="Đã từ chối" color="error" size="small" />;
+    if (application.status === 'WITHDRAWN') return <Chip label="Đã rút hồ sơ" size="small" />;
+
+    const stage = (application.currentStageName || application.stageName || '').trim().toLowerCase();
+    if (['new', 'sourced', 'mới ứng tuyển', 'đã nộp'].includes(stage)) {
+      return <Chip label="Đã nộp" color="primary" size="small" />;
     }
+    if (['screening', 'sàng lọc'].includes(stage)) {
+      return <Chip label="Đang xem xét hồ sơ" color="info" size="small" />;
+    }
+    if (['interviewing', 'interview', 'phỏng vấn'].includes(stage)) {
+      return <Chip label="Đang phỏng vấn" color="warning" size="small" />;
+    }
+    if (['offered', 'offer', 'mời nhận việc'].includes(stage)) {
+      return <Chip label="Đang chờ phản hồi lời mời" color="secondary" size="small" />;
+    }
+    return <Chip label="Đang xem xét hồ sơ" color="info" size="small" />;
   };
 
   return (
@@ -100,9 +140,8 @@ export default function CandidateApplicationsPage() {
           <Table>
             <TableHead sx={{ bgcolor: '#f8fafc' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Vị trí tuyển dụng</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Vị trí ứng tuyển / Công ty</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Ngày nộp</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Bước quy trình (Stage)</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Trạng thái</TableCell>
                 <TableCell sx={{ fontWeight: 700 }} align="right">Hành động</TableCell>
               </TableRow>
@@ -115,7 +154,7 @@ export default function CandidateApplicationsPage() {
                       {app.jobTitle || `Công việc #${app.jobId}`}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {app.companyName || 'Công ty tuyển dụng'}
+                    {app.companyName || 'Chưa có thông tin công ty'}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -123,15 +162,7 @@ export default function CandidateApplicationsPage() {
                       ? new Date(app.appliedAt).toLocaleDateString('vi-VN')
                       : 'Mới đây'}
                   </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={app.stageName || 'Sourced'}
-                      variant="outlined"
-                      color="secondary"
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>{getStatusChip(app.status)}</TableCell>
+                  <TableCell>{getStatusChip(app)}</TableCell>
                   <TableCell align="right">
                     {app.status === 'ACTIVE' && (
                       <Button
@@ -151,6 +182,12 @@ export default function CandidateApplicationsPage() {
           </Table>
         </Paper>
       )}
+      <AppSnackbar
+        open={toast.open}
+        severity={toast.severity}
+        message={toast.message}
+        onClose={closeToast}
+      />
     </Container>
   );
 }

@@ -7,6 +7,7 @@ export const interviewApi = {
     return apiClient.get(`/api/v1/interviews${qs ? '?' + qs : ''}`);
   },
   getMyInterviews: () => apiClient.get('/api/v1/interviews/mine'),
+  selectTimeSlot: (id, slotIndex) => apiClient.post(`/api/v1/interviews/${id}/select-slot`, { slotIndex }),
   getInterviewById: (id) => apiClient.get(`/api/v1/interviews/${id}`),
   update: (id, data) => apiClient.put(`/api/v1/interviews/${id}`, data),
   cancel: (id, reason) => apiClient.post(`/api/v1/interviews/${id}/cancel`, { reason }),

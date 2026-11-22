@@ -5,6 +5,7 @@ import static com.rms.interview.exception.ApiExceptionHandler.ApiException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Duration;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
@@ -15,12 +16,15 @@ import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.rms.interview.dto.InterviewDtos.CreateInterviewRequest;
 import com.rms.interview.dto.InterviewDtos.InterviewResponse;
+import com.rms.interview.dto.InterviewDtos.TimeSlotRequest;
 import com.rms.interview.dto.InterviewDtos.UpdateInterviewRequest;
 import com.rms.interview.config.RequestContext;
 import com.rms.interview.entity.Interview;
+import com.rms.interview.entity.InterviewTimeSlot;
 import com.rms.interview.entity.InterviewStatus;
 import com.rms.interview.client.InternalServiceClient;
 import com.rms.interview.messaging.NotificationEvent;
@@ -38,16 +42,19 @@ public class InterviewService {
     private final InterviewFeedbackRepository feedbackRepository;
     private final InternalServiceClient internalClient;
     private final NotificationPublisher notifications;
+    private final JdbcTemplate jdbcTemplate;
 
     public InterviewService(
             InterviewRepository repository,
             InterviewFeedbackRepository feedbackRepository,
             InternalServiceClient internalClient,
-            NotificationPublisher notifications) {
+            NotificationPublisher notifications,
+            JdbcTemplate jdbcTemplate) {
         this.repository = repository;
         this.feedbackRepository = feedbackRepository;
         this.internalClient = internalClient;
         this.notifications = notifications;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Transactional
@@ -62,19 +69,24 @@ public class InterviewService {
             throw new ApiException(HttpStatus.CONFLICT, "ERR_APPLICATION_NOT_ACTIVE",
                     "Interview can only be created for an active application");
         }
+        boolean candidateChoosesSlot = request.timeSlots() != null && !request.timeSlots().isEmpty();
         LocalDate scheduledDate = request.scheduledDate();
         java.time.LocalTime startTime = request.startTime();
-        if ((scheduledDate == null || startTime == null) && request.scheduledAt() != null) {
+        if (!candidateChoosesSlot && (scheduledDate == null || startTime == null) && request.scheduledAt() != null) {
             LocalDateTime localDateTime = LocalDateTime.ofInstant(
                     request.scheduledAt(), ZoneId.of("Asia/Ho_Chi_Minh"));
             scheduledDate = localDateTime.toLocalDate();
             startTime = localDateTime.toLocalTime();
         }
-        if (scheduledDate == null || startTime == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_TIME_REQUIRED",
-                    "Interview date and time are required");
+        if (candidateChoosesSlot) {
+            validateTimeSlots(request.timeSlots());
+        } else {
+            if (scheduledDate == null || startTime == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_TIME_REQUIRED",
+                        "Provide interview time options for the candidate to choose from");
+            }
+            validateFuture(scheduledDate, startTime);
         }
-        validateFuture(scheduledDate, startTime);
 
         Set<UUID> interviewerIds = new LinkedHashSet<>();
         if (request.interviewerIds() != null) interviewerIds.addAll(request.interviewerIds());
@@ -108,17 +120,74 @@ public class InterviewService {
         Interview interview = new Interview();
         interview.setApplicationId(request.applicationId());
         interview.setTenantId(tenantId);
-        interview.setScheduledDate(scheduledDate);
-        interview.setStartTime(startTime);
+        interview.setCandidateId(application.candidateId());
+        interview.setScheduledDate(candidateChoosesSlot ? null : scheduledDate);
+        interview.setStartTime(candidateChoosesSlot ? null : startTime);
         interview.setDurationMinutes(request.durationMinutes());
         interview.setInterviewType(request.interviewType());
         interview.setLocationOrUrl(locationOrUrl);
         interview.setNotes(request.notes());
         interview.setCreatedBy(RequestContext.userId());
         interview.setParticipantIds(interviewerIds);
+        if (candidateChoosesSlot) {
+            interview.setTimeSlots(request.timeSlots().stream()
+                    .map(slot -> new InterviewTimeSlot(slot.date(), slot.startTime(), slot.endTime()))
+                    .toList());
+            interview.setStatus(InterviewStatus.AWAITING_CANDIDATE_SELECTION);
+        } else {
+            LocalDateTime proposedStart = LocalDateTime.of(scheduledDate, startTime);
+            lockCandidate(application.candidateId());
+            rejectIfOverlapping(interview, application.candidateId(), proposedStart,
+                    proposedStart.plusMinutes(request.durationMinutes()), request.applicationId());
+        }
         interview = repository.save(interview);
 
-        publishScheduleNotifications(interview, application, "INTERVIEW_SCHEDULED");
+        if (candidateChoosesSlot) {
+            publishSlotOptionsNotification(interview, application);
+        } else {
+            publishScheduleNotifications(interview, application, "INTERVIEW_SCHEDULED");
+        }
+        return InterviewResponse.from(interview);
+    }
+
+    @Transactional
+    public InterviewResponse selectTimeSlot(UUID interviewId, int slotIndex) {
+        String role = RequestContext.role().replaceFirst("(?i)^ROLE_", "");
+        if (!"CANDIDATE".equalsIgnoreCase(role)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ERR_INSUFFICIENT_PERMISSION",
+                    "Only the candidate may select an interview time");
+        }
+        Interview interview = repository.findById(interviewId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ERR_INTERVIEW_NOT_FOUND",
+                        "Interview was not found"));
+        UUID candidateId = RequestContext.userId();
+        if (interview.getCandidateId() == null || !candidateId.equals(interview.getCandidateId())) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "ERR_INTERVIEW_NOT_FOUND",
+                    "Interview was not found");
+        }
+        if (interview.getStatus() != InterviewStatus.AWAITING_CANDIDATE_SELECTION) {
+            throw new ApiException(HttpStatus.CONFLICT, "ERR_INTERVIEW_SLOT_CLOSED",
+                    "This interview no longer accepts a time selection");
+        }
+        if (slotIndex < 0 || slotIndex >= interview.getTimeSlots().size()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_SLOT_INVALID",
+                    "Choose one of the available interview time options");
+        }
+
+        InterviewTimeSlot selected = interview.getTimeSlots().get(slotIndex);
+        LocalDateTime startsAt = LocalDateTime.of(selected.getDate(), selected.getStartTime());
+        LocalDateTime endsAt = LocalDateTime.of(selected.getDate(), selected.getEndTime());
+        lockCandidate(candidateId);
+        rejectIfOverlapping(interview, candidateId, startsAt, endsAt, null);
+
+        interview.setScheduledDate(selected.getDate());
+        interview.setStartTime(selected.getStartTime());
+        interview.setDurationMinutes(Math.toIntExact(Duration.between(startsAt, endsAt).toMinutes()));
+        interview.setCandidateSelectedSlotIndex(slotIndex);
+        interview.setStatus(InterviewStatus.SCHEDULED);
+        interview.setUpdatedAt(Instant.now());
+        interview = repository.save(interview);
+        publishSlotSelectedNotification(interview, candidateId, startsAt, endsAt);
         return InterviewResponse.from(interview);
     }
 
@@ -169,6 +238,14 @@ public class InterviewService {
                 ? interview.getScheduledDate() : request.scheduledDate();
         var time = request.startTime() == null ? interview.getStartTime() : request.startTime();
         validateFuture(date, time);
+        int updatedDuration = request.durationMinutes() == null
+                ? interview.getDurationMinutes() : request.durationMinutes();
+        if (interview.getCandidateId() != null) {
+            LocalDateTime startsAt = LocalDateTime.of(date, time);
+            lockCandidate(interview.getCandidateId());
+            rejectIfOverlapping(interview, interview.getCandidateId(), startsAt,
+                    startsAt.plusMinutes(updatedDuration), null);
+        }
 
         if (request.interviewerIds() != null) {
             if (request.interviewerIds().isEmpty()) {
@@ -180,9 +257,7 @@ public class InterviewService {
         }
         interview.setScheduledDate(date);
         interview.setStartTime(time);
-        if (request.durationMinutes() != null) {
-            interview.setDurationMinutes(request.durationMinutes());
-        }
+        interview.setDurationMinutes(updatedDuration);
         if (request.interviewType() != null) {
             interview.setInterviewType(request.interviewType());
         }
@@ -284,6 +359,101 @@ public class InterviewService {
         }
     }
 
+    private void validateTimeSlots(List<TimeSlotRequest> slots) {
+        for (int i = 0; i < slots.size(); i++) {
+            TimeSlotRequest slot = slots.get(i);
+            if (slot.date() == null || slot.startTime() == null || slot.endTime() == null
+                    || !slot.endTime().isAfter(slot.startTime())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_SLOT_INVALID",
+                        "Each option must have a date and an end time later than its start time");
+            }
+            long minutes = Duration.between(slot.startTime(), slot.endTime()).toMinutes();
+            if (minutes < 15 || minutes > 480) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_SLOT_DURATION",
+                        "Each interview time option must be between 15 minutes and 8 hours");
+            }
+            validateFuture(slot.date(), slot.startTime());
+            for (int j = 0; j < i; j++) {
+                TimeSlotRequest earlier = slots.get(j);
+                boolean overlaps = earlier.date().equals(slot.date())
+                        && earlier.startTime().isBefore(slot.endTime())
+                        && slot.startTime().isBefore(earlier.endTime());
+                if (overlaps) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "ERR_INTERVIEW_SLOT_OVERLAP",
+                            "The proposed time options must not overlap each other");
+                }
+            }
+        }
+    }
+
+    private void lockCandidate(UUID candidateId) {
+        jdbcTemplate.execute((org.springframework.jdbc.core.ConnectionCallback<Void>) connection -> {
+            try (var statement = connection.prepareStatement("SELECT pg_advisory_xact_lock(hashtext(?))")) {
+                statement.setString(1, candidateId.toString());
+                try (var result = statement.executeQuery()) {
+                    if (result.next()) result.getObject(1);
+                }
+            }
+            return null;
+        });
+    }
+
+    private void rejectIfOverlapping(Interview proposed, UUID candidateId,
+            LocalDateTime startsAt, LocalDateTime endsAt, UUID fallbackEntityId) {
+        var nearbyDays = repository.findPotentialConflicts(
+                candidateId, InterviewStatus.SCHEDULED.name(),
+                startsAt.toLocalDate().minusDays(1), endsAt.toLocalDate());
+        boolean overlaps = nearbyDays.stream()
+                .filter(existing -> proposed.getId() == null || !existing.getId().equals(proposed.getId()))
+                .filter(existing -> existing.getScheduledDate() != null && existing.getStartTime() != null)
+                .anyMatch(existing -> {
+                    LocalDateTime existingStart = LocalDateTime.of(
+                            existing.getScheduledDate(), existing.getStartTime());
+                    LocalDateTime existingEnd = existingStart.plusMinutes(existing.getDurationMinutes());
+                    return existingStart.isBefore(endsAt) && startsAt.isBefore(existingEnd);
+                });
+        if (overlaps) {
+            UUID entityId = proposed.getId() != null ? proposed.getId() : fallbackEntityId;
+            notifications.publish(new NotificationEvent(proposed.getTenantId(), candidateId,
+                    "INTERVIEW_SLOT_CONFLICT", "INTERVIEW", entityId,
+                    "Khung giờ phỏng vấn bị trùng",
+                    "Khung giờ " + startsAt.format(DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy"))
+                            + " - " + endsAt.format(DateTimeFormatter.ofPattern("HH:mm"))
+                            + " trùng với một lịch phỏng vấn khác. Vui lòng chọn khung giờ khác."));
+            throw new ApiException(HttpStatus.CONFLICT, "ERR_INTERVIEW_TIME_CONFLICT",
+                    "Khung giờ này trùng với một lịch phỏng vấn khác của bạn. Vui lòng chọn khung giờ khác.");
+        }
+    }
+
+    private void publishSlotOptionsNotification(Interview interview,
+            InternalServiceClient.ApplicationDetails application) {
+        String options = interview.getTimeSlots().stream()
+                .map(slot -> slot.getStartTime() + "-" + slot.getEndTime() + " ngày "
+                        + slot.getDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                .collect(java.util.stream.Collectors.joining(", "));
+        notifications.publish(new NotificationEvent(interview.getTenantId(), application.candidateId(),
+                "INTERVIEW_SLOTS_PROPOSED", "INTERVIEW", interview.getId(),
+                "Vui lòng chọn khung giờ phỏng vấn",
+                "Nhà tuyển dụng đã đề xuất các khung giờ: " + options
+                        + ". Vui lòng vào mục Lịch phỏng vấn để chọn một khung phù hợp."));
+    }
+
+    private void publishSlotSelectedNotification(Interview interview, UUID candidateId,
+            LocalDateTime startsAt, LocalDateTime endsAt) {
+        String when = startsAt.format(DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy"))
+                + " - " + endsAt.format(DateTimeFormatter.ofPattern("HH:mm"));
+        notifications.publish(new NotificationEvent(interview.getTenantId(), candidateId,
+                "INTERVIEW_SLOT_SELECTED", "INTERVIEW", interview.getId(),
+                "Bạn đã xác nhận lịch phỏng vấn",
+                "Bạn đã chọn khung giờ phỏng vấn " + when + "."));
+        for (UUID interviewerId : interview.getParticipantIds()) {
+            notifications.publish(new NotificationEvent(interview.getTenantId(), interviewerId,
+                    "INTERVIEW_SLOT_SELECTED", "INTERVIEW", interview.getId(),
+                    "Ứng viên đã chọn khung giờ phỏng vấn",
+                    "Ứng viên đã xác nhận khung giờ phỏng vấn " + when + "."));
+        }
+    }
+
     private void validateInterviewers(Set<UUID> interviewerIds, UUID tenantId) {
         for (UUID interviewerId : interviewerIds) {
             var user = internalClient.getUser(interviewerId, tenantId);
@@ -317,7 +487,7 @@ public class InterviewService {
             // Notification delivery must continue when IAM is temporarily unavailable.
         }
         String candidate = displayName(application.candidateName(), application.candidateEmail(),
-                application.candidateId().toString());
+                "ứng viên");
         String when = LocalDateTime.of(interview.getScheduledDate(), interview.getStartTime())
                 .format(DateTimeFormatter.ofPattern("HH:mm 'ngày' dd/MM/yyyy"));
         String location = interview.getLocationOrUrl() != null && !interview.getLocationOrUrl().isBlank()

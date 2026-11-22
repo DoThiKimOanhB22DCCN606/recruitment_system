@@ -49,7 +49,6 @@ public class NotificationService {
     }
 
     private Notification localizeLegacy(Notification original) {
-        if (original.getTitle() == null || !original.getTitle().matches("[A-Za-z].*")) return original;
         Notification localized = new Notification();
         localized.setId(original.getId());
         localized.setTenantId(original.getTenantId());
@@ -64,7 +63,7 @@ public class NotificationService {
         localized.setMessage(original.getMessage());
 
         String type = original.getActionType();
-        if (type == null) return localized;
+        if (type == null) return localizeUnknown(localized);
         switch (type) {
             case "APPLICATION_SUBMITTED" -> {
                 localized.setTitle("Có hồ sơ ứng tuyển mới");
@@ -90,6 +89,24 @@ public class NotificationService {
                 localized.setTitle("Có lịch phỏng vấn mới");
                 localized.setMessage("Lịch phỏng vấn đã được tạo. Xem mục Lịch phỏng vấn để biết thời gian và người tham gia.");
             }
+            case "INTERVIEW_SLOTS_PROPOSED" -> {
+                localized.setTitle("Vui lòng chọn khung giờ phỏng vấn");
+                localized.setMessage(original.getMessage() == null || original.getMessage().isBlank()
+                        ? "Nhà tuyển dụng đã đề xuất các khung giờ phỏng vấn. Vui lòng vào mục Lịch phỏng vấn để chọn một khung phù hợp."
+                        : original.getMessage());
+            }
+            case "INTERVIEW_SLOT_SELECTED" -> {
+                localized.setTitle(original.getTitle() == null || original.getTitle().isBlank()
+                        ? "Ứng viên đã chọn khung giờ phỏng vấn" : original.getTitle());
+                localized.setMessage(original.getMessage() == null || original.getMessage().isBlank()
+                        ? "Khung giờ phỏng vấn đã được xác nhận." : original.getMessage());
+            }
+            case "INTERVIEW_SLOT_CONFLICT" -> {
+                localized.setTitle("Khung giờ phỏng vấn bị trùng");
+                localized.setMessage(original.getMessage() == null || original.getMessage().isBlank()
+                        ? "Khung giờ bạn chọn trùng với một lịch phỏng vấn khác. Vui lòng chọn khung giờ khác."
+                        : original.getMessage());
+            }
             case "INTERVIEW_UPDATED" -> {
                 localized.setTitle("Lịch phỏng vấn đã thay đổi");
                 localized.setMessage("Lịch phỏng vấn đã được cập nhật. Xem mục Lịch phỏng vấn để biết thông tin mới.");
@@ -106,8 +123,14 @@ public class NotificationService {
                 localized.setTitle("Trạng thái tìm việc đã hết hạn");
                 localized.setMessage("Trạng thái tìm việc đã hết hạn và được chuyển về chế độ không tìm việc.");
             }
+            case "COMPANY_REGISTRATION_SUBMITTED" -> {
+                localized.setTitle("Doanh nghiệp mới chờ duyệt");
+                if (original.getMessage() == null || original.getMessage().matches("(?i).*pending approval.*")) {
+                    localized.setMessage("Có hồ sơ đăng ký doanh nghiệp mới đang chờ SYS_ADMIN xem xét và phê duyệt.");
+                }
+            }
             default -> {
-                return original;
+                return localizeUnknown(localized);
             }
         }
         return localized;
@@ -121,28 +144,80 @@ public class NotificationService {
 
     private String legacyStageMessage(Notification notification) {
         var application = application(notification);
-        if (application == null) return "Hồ sơ ứng tuyển của bạn đã được chuyển bước trong quy trình tuyển dụng.";
-        String target = notification.getMessage() == null ? "" : notification.getMessage()
-                .replaceFirst("^Your application moved to ", "");
-        String actor = "nhà tuyển dụng phụ trách";
-        String previous = null;
+        if (application == null) {
+            return "Hồ sơ ứng tuyển của bạn đang được nhà tuyển dụng xem xét.";
+        }
+        ApplicationStageHistory matchedChange = null;
+        long nearestChangeSeconds = Long.MAX_VALUE;
         try {
             var changes = history.findByApplicationIdOrderByCreatedAtAsc(application.getId());
             for (ApplicationStageHistory change : changes) {
-                if (change.getCreatedAt() != null && notification.getCreatedAt() != null
-                        && change.getCreatedAt().isAfter(notification.getCreatedAt().plusSeconds(30))) break;
-                String changedTo = stageName(change.getToStageId());
-                if (target.equalsIgnoreCase(changedTo)) {
-                    actor = actorName(change.getActorId(), change.getActorName());
-                    previous = stageName(change.getFromStageId());
+                if (change.getCreatedAt() == null || notification.getCreatedAt() == null) continue;
+                long seconds = Math.abs(ChronoUnit.SECONDS.between(change.getCreatedAt(), notification.getCreatedAt()));
+                if (seconds <= 120 && seconds < nearestChangeSeconds) {
+                    nearestChangeSeconds = seconds;
+                    matchedChange = change;
                 }
             }
         } catch (RuntimeException ignored) {
-            // Preserve the translated message when historical details are unavailable.
+            // Keep the event message if the audit history is unavailable.
         }
-        return actor + " đã chuyển hồ sơ ứng tuyển của bạn cho vị trí " + jobName(application)
-                + (previous != null ? " từ bước " + vietnameseStage(previous) : "")
-                + " sang bước " + vietnameseStage(target) + ".";
+
+        if (matchedChange != null) {
+            String target = stageName(matchedChange.getToStageId());
+            String actor = actorName(matchedChange.getActorId(), matchedChange.getActorName());
+            return candidateStageMessage(application, target, actor, matchedChange.getReason());
+        }
+
+        String original = notification.getMessage();
+        if (original != null && !original.isBlank()
+                && !original.startsWith("Your application moved to ")
+                && !original.contains("đã được chuyển sang bước tiếp theo")
+                && !original.toLowerCase(java.util.Locale.ROOT).contains("stage transition from ")) {
+            return original;
+        }
+        return candidateStageMessage(application,
+                application.getCurrentStage() == null ? null : application.getCurrentStage().getName(), null,
+                application.getRejectionReason());
+    }
+
+    private String candidateStageMessage(Application application, String stage, String actor, String reason) {
+        String job = jobName(application);
+        String recruiter = actor == null || actor.isBlank() ? "Nhà tuyển dụng" : "Nhà tuyển dụng " + actor;
+        if (stage == null || stage.isBlank()) {
+            return "Hồ sơ ứng tuyển của bạn cho vị trí " + job + " đang được nhà tuyển dụng xem xét.";
+        }
+        String normalizedStage = stage.toLowerCase(java.util.Locale.ROOT);
+        String message = switch (normalizedStage) {
+            case "new" -> "Hồ sơ ứng tuyển của bạn cho vị trí " + job + " đã được tiếp nhận.";
+            case "screening" -> recruiter + " đang xem xét hồ sơ của bạn cho vị trí " + job
+                    + " ở vòng sàng lọc.";
+            case "interviewing" -> "Hồ sơ của bạn đã qua vòng sàng lọc và đang ở giai đoạn phỏng vấn cho vị trí "
+                    + job + ". Nhà tuyển dụng sẽ cập nhật lịch phỏng vấn riêng.";
+            case "offered" -> "Hồ sơ của bạn đã đến giai đoạn đề xuất nhận việc cho vị trí " + job
+                    + ". Vui lòng theo dõi mục Lời mời nhận việc để xem thông tin tiếp theo.";
+            case "hired" -> "Chúc mừng! Nhà tuyển dụng đã xác nhận bạn trúng tuyển vị trí " + job + ".";
+            case "rejected" -> "Rất tiếc, hồ sơ ứng tuyển của bạn cho vị trí " + job
+                    + " chưa được tiếp tục.";
+            default -> recruiter + " đang xem xét hồ sơ của bạn cho vị trí " + job
+                    + " ở giai đoạn " + vietnameseStage(stage) + ".";
+        };
+        String visibleReason = candidateVisibleReason(reason);
+        if (visibleReason == null) return message;
+        String label = "rejected".equals(normalizedStage) ? "Lý do: " : "Ghi chú từ nhà tuyển dụng: ";
+        return message + " " + label + visibleReason;
+    }
+
+    private String candidateVisibleReason(String reason) {
+        if (reason == null || reason.isBlank()) return null;
+        String value = reason.trim();
+        String normalized = value.toLowerCase(java.util.Locale.ROOT);
+        if (normalized.startsWith("stage transition from ")
+                || normalized.equals("candidate withdrew application")
+                || normalized.equals("offer expired")) {
+            return null;
+        }
+        return value;
     }
 
     private Application application(Notification notification) {
@@ -157,7 +232,8 @@ public class NotificationService {
                     && !"New Candidate".equalsIgnoreCase(cv.candidateName())) return cv.candidateName();
         } catch (RuntimeException ignored) {
         }
-        return actorName(application.getCandidateId(), application.getCandidateId().toString());
+        String name = actorName(application.getCandidateId(), null);
+        return name != null ? name : "ứng viên";
     }
 
     private String actorName(UUID actorId, String fallback) {
@@ -170,7 +246,7 @@ public class NotificationService {
             }
         } catch (RuntimeException ignored) {
         }
-        return fallback != null && !fallback.isBlank() ? fallback : actorId.toString();
+        return fallback != null && !fallback.isBlank() ? fallback : null;
     }
 
     private String jobName(Application application) {
@@ -180,7 +256,7 @@ public class NotificationService {
             if (job != null && job.title() != null && !job.title().isBlank()) return "\"" + job.title() + "\"";
         } catch (RuntimeException ignored) {
         }
-        return "tin tuyển dụng #" + jobId;
+        return "vị trí tuyển dụng";
     }
 
     private String stageName(UUID stageId) {
@@ -198,6 +274,27 @@ public class NotificationService {
             case "rejected" -> "Từ chối";
             default -> name;
         };
+    }
+
+    private Notification localizeUnknown(Notification notification) {
+        String type = notification.getActionType();
+        if (type != null && type.startsWith("JOB_")) {
+            notification.setTitle("Cập nhật tin tuyển dụng");
+            notification.setMessage("Tin tuyển dụng đã có thay đổi. Vui lòng mở trang quản lý tin tuyển dụng để xem chi tiết.");
+        } else if (type != null && type.startsWith("OFFER_")) {
+            notification.setTitle("Cập nhật lời mời nhận việc");
+            notification.setMessage("Lời mời nhận việc đã có thay đổi. Vui lòng mở mục Lời mời nhận việc để xem chi tiết.");
+        } else if (type != null && type.startsWith("INTERVIEW_")) {
+            notification.setTitle("Cập nhật lịch phỏng vấn");
+            notification.setMessage("Lịch phỏng vấn đã có thay đổi. Vui lòng mở mục Lịch phỏng vấn để xem chi tiết.");
+        } else if (type != null && type.startsWith("APPLICATION_")) {
+            notification.setTitle("Cập nhật hồ sơ ứng tuyển");
+            notification.setMessage("Hồ sơ ứng tuyển đã có thay đổi. Vui lòng mở mục Quy trình ATS để xem chi tiết.");
+        } else {
+            notification.setTitle("Thông báo mới");
+            notification.setMessage("Hệ thống có cập nhật mới. Vui lòng mở ứng dụng để xem chi tiết.");
+        }
+        return notification;
     }
 
     @Transactional(readOnly = true)

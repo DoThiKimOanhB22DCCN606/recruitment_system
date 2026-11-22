@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.rms.interview.dto.InterviewDtos.CreateInterviewRequest;
 import com.rms.interview.dto.InterviewDtos.InterviewResponse;
+import com.rms.interview.dto.InterviewDtos.SelectTimeSlotRequest;
 import com.rms.interview.dto.InterviewDtos.UpdateInterviewRequest;
 import com.rms.interview.dto.InterviewFeedbackDtos.FeedbackRequest;
 import com.rms.interview.dto.InterviewFeedbackDtos.FeedbackResponse;
@@ -46,6 +47,13 @@ public class InterviewController {
     @GetMapping("/interviews/mine")
     List<InterviewResponse> candidateInterviews() {
         return service.listForCurrentCandidate();
+    }
+
+    @PostMapping("/interviews/{id}/select-slot")
+    InterviewResponse selectTimeSlot(
+            @PathVariable UUID id,
+            @Valid @RequestBody SelectTimeSlotRequest request) {
+        return service.selectTimeSlot(id, request.slotIndex());
     }
 
     @GetMapping("/interviews/{id}")
